@@ -24,6 +24,10 @@ function ou_bagit_importer_drush_command() {
         'description' => 'Parent collection recipe will be imported into',
         'required' => TRUE,
       ),
+      'pid_namespace' => array(
+        'description' => 'Namespace to be used for PID creation',
+        'required' => TRUE,
+      ),
       'tmp_dir' => array(
         'description' => 'Path to tmp downloaded files (will be in public files directory by default)',
         'required' => FALSE,
@@ -40,6 +44,7 @@ function ou_bagit_importer_drush_command() {
 function drush_ou_bagit_importer_import_ou_bag() {
   $uri = drush_get_option('recipe_uri');
   $parent_collection = drush_get_option('parent_collection');
+  $pid_namespace = drush_get_option('pid_namespace');
 
   $file_data = drupal_json_decode(file_get_contents($uri));
   if (!$file_data) {
@@ -53,7 +58,7 @@ function drush_ou_bagit_importer_import_ou_bag() {
   if (file_prepare_directory($directory, FILE_CREATE_DIRECTORY)) {
     drupal_set_message(t("TMP files can be found (and removed manually) at %directory", array('%directory' => $directory)));
     @copy($uri, "{$directory}/{$json_filename}");
-    ou_bagit_importer_process_json_file($pathinfo['dirname'], $directory, $json_filename, $parent_collection);
+    ou_bagit_importer_process_json_file($pathinfo['dirname'], $directory, $json_filename, $parent_collection, $pid_namespace);
   }
   else {
     drupal_set_message(t("Could not create directory. You may need to run drush command as sudo"), 'error');
@@ -63,7 +68,7 @@ function drush_ou_bagit_importer_import_ou_bag() {
 /**
  *
  */
-function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $json_filename, $parent_collection) {
+function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $json_filename, $parent_collection, $pid_namespace) {
   $json_data = drupal_json_decode(file_get_contents("{$drupal_directory}/{$json_filename}"));
   if ($json_data) {
     $type = $json_data['recipe']['import'];
@@ -74,14 +79,15 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
     if ($json_data['recipe']['import'] == 'book') {
       $object = array(
         'type' => 'islandora:bookCModel',
+        'pid_namespace' => $pid_namespace,
         'uuid' => $json_data['recipe']['uuid'],
         'label' => $json_data['recipe']['label'],
         'metadata' => $metadata,
       );
-      $result = ou_bagit_importer_save_book_collection($object, $json_data['recipe'], $parent_collection);
+      $result = ou_bagit_importer_save_book_collection($object, $json_data['recipe'], $parent_collection, $pid_namespace);
       _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
       drupal_set_message(t('Saving book collection @book', array('@book' => $object['uuid'])));
-      ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data['recipe']);
+      ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace );
     }
 
     $batch =& batch_get();
@@ -96,7 +102,7 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
 /**
  *
  */
-function ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data) {
+function ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data, $pid_namespace) {
   $batch = array(
     'operations' => array(),
     'finished' => '_ou_bagit_importer_batches_finished',
@@ -115,6 +121,7 @@ function ou_bagit_importer_process_json_book_pages($source_uri, $drupal_director
         $key,
         $page,
         $json_data,
+        $pid_namespace,
       ),
     );
   }
@@ -124,9 +131,10 @@ function ou_bagit_importer_process_json_book_pages($source_uri, $drupal_director
 /**
  *
  */
-function ou_bagit_importer_batch_import_page($source_uri, $drupal_directory, $object, $page_number, $page, $json_data, &$context) {
+function ou_bagit_importer_batch_import_page($source_uri, $drupal_directory, $object, $page_number, $page, $json_data, $pid_namespace, &$context ) {
   $result = array();
   $object = array(
+    'pid_namespace' => $pid_namespace,
     'source_uri' => $source_uri,
     'drupal_directory' => $drupal_directory,
     'file' => $page['file'],

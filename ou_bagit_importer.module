@@ -5,16 +5,16 @@
  * The OU json recipe importer.
  */
 
-define('OU_BAGIT_IMPORTER_OBJECT_NAMESPACE', 'islandora');
 
 /**
  * Creates/Updates a book collection.
  */
-function ou_bagit_importer_save_book_collection($object_array, $json_recipe, $parent_collection) {
-  // Reset because we want to make sure tuque is connecting with the right credentials 	 
+function ou_bagit_importer_save_book_collection($object_array, $json_recipe, $parent_collection, $pid_namespace) {
+
+  // Reset because we want to make sure tuque is connecting with the right credentials
   drupal_static_reset('islandora_get_tuque_connection');
   $tuque = islandora_get_tuque_connection();
-  $uuid = OU_BAGIT_IMPORTER_OBJECT_NAMESPACE . ":{$object_array['uuid']}";
+  $uuid = "{$pid_namespace}".":{$object_array['uuid']}";
   $islandora_object = islandora_object_load($uuid);
   $update = (bool) $json_recipe['update'];
   $content_models = array(
@@ -39,8 +39,8 @@ function ou_bagit_importer_save_book_collection($object_array, $json_recipe, $pa
 
   // Set up islandora object.
   if (!$islandora_object) {
-    $islandora_object = $tuque->repository->constructObject(OU_BAGIT_IMPORTER_OBJECT_NAMESPACE . ":{$object_array['uuid']}");
-    $islandora_object->id = OU_BAGIT_IMPORTER_OBJECT_NAMESPACE . ":{$object_array['uuid']}";
+    $islandora_object = $tuque->repository->constructObject( "{$object_array['pid_namespace']}". ":{$object_array['uuid']}");
+    $islandora_object->id = "{$object_array['pid_namespace']}" . ":{$object_array['uuid']}";
     $islandora_object->state = 'A';
     $islandora_object->label = $object_array['label'];
     $islandora_object->ownerId = $user->name;
@@ -124,7 +124,7 @@ function ou_bagit_importer_save_book_page($object_array, $json_recipe) {
   // Reset because we want to make sure tuque is connecting with the right credentials
   drupal_static_reset('islandora_get_tuque_connection');
   $tuque = islandora_get_tuque_connection();
-  $uuid = OU_BAGIT_IMPORTER_OBJECT_NAMESPACE . ":" . $object_array['uuid'];
+  $uuid = "{$object_array['pid_namespace']}" . ":" . $object_array['uuid'];
   $islandora_object = islandora_object_load($uuid);
   $update = (bool) $json_recipe['update'];
   $content_models = array(
@@ -151,8 +151,8 @@ function ou_bagit_importer_save_book_page($object_array, $json_recipe) {
     foreach ($content_models as $content_model) {
       $islandora_object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model);
     }
-    $islandora_object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', OU_BAGIT_IMPORTER_OBJECT_NAMESPACE . ':' . $object_array['book']);
-    $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', OU_BAGIT_IMPORTER_OBJECT_NAMESPACE . ':' . $object_array['book']);
+    $islandora_object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', "{$object_array['pid_namespace']}" . ':' . $object_array['book']);
+    $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', "{$object_array['pid_namespace']}" . ':' . $object_array['book']);
     $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', $object_array['page_number']);
     $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageNumber', $object_array['page_number']);
     $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
@@ -247,7 +247,7 @@ function ou_bagit_importer_save_book_page($object_array, $json_recipe) {
   if ($new) {
     islandora_add_object($islandora_object);
   }
-  
+
   return array(
     'object' => $islandora_object->id,
     'result' => TRUE,
