@@ -6,9 +6,9 @@
 
 class IslandoraBagitNewspaperProcessor extends IslandoraBagitProcessor {
     
-    function __construct()
+    function __construct($uri, $parent_collection, $pid_namespace, $recipe_data)
     {
-        parent::__construct($uri, $parent_collection, $pid_namespace);
+        parent::__construct($uri, $parent_collection, $pid_namespace, $recipe_data);
     }
     
     function batchImportFromRecipeData(){

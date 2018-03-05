@@ -87,13 +87,16 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
       $result = ou_bagit_importer_save_book_collection($object, $json_data['recipe'], $parent_collection, $pid_namespace);
       _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
       drupal_set_message(t('Saving book collection @book', array('@book' => $object['uuid'])));
-      ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace );
+      ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace, $json_data);
     }
     else{
+        module_load_include('inc', 'ou-bagit-importer', 'includes/islandora_bagit_processor');
+        module_load_include('inc', 'ou-bagit-importer', 'includes/islandora_bagit_newspaper_processor');
         $content_type = $json_data['recipe']['import'];
         switch($content_type){
             case 'newspaper':
-                print('News paper is processed!');
+                $newspaper_processor = new IslandoraBagitNewspaperProcessor($source_uri, $parent_collection, $pid_namespace);
+                $newspaper_processor->updateIslandoraCollection();
                 break;
             default :
                 drupal_set_message(t("Could not process the content type: ".$content_type));
