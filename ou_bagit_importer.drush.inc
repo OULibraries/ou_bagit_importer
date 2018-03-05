@@ -50,20 +50,19 @@ function drush_ou_bagit_importer_import_ou_bag() {
   if (!$file_data) {
     drupal_set_message(t("Could not download recipe."));
   }
-  print_r($file_data);
-//  $directory_basename = $file_data['recipe']['uuid'];
-//  $directory = drush_get_option('tmp_dir', "temporary://ou_bagit_importer/{$directory_basename}");
-//
-//  $pathinfo = pathinfo($uri);
-//  $json_filename = $pathinfo['basename'];
-//  if (file_prepare_directory($directory, FILE_CREATE_DIRECTORY)) {
-//    drupal_set_message(t("TMP files can be found (and removed manually) at %directory", array('%directory' => $directory)));
-//    @copy($uri, "{$directory}/{$json_filename}");
-//    ou_bagit_importer_process_json_file($pathinfo['dirname'], $directory, $json_filename, $parent_collection, $pid_namespace);
-//  }
-//  else {
-//    drupal_set_message(t("Could not create directory. You may need to run drush command as sudo"), 'error');
-//  }
+  $directory_basename = $file_data['recipe']['uuid'];
+  $directory = drush_get_option('tmp_dir', "temporary://ou_bagit_importer/{$directory_basename}");
+
+  $pathinfo = pathinfo($uri);
+  $json_filename = $pathinfo['basename'];
+  if (file_prepare_directory($directory, FILE_CREATE_DIRECTORY)) {
+    drupal_set_message(t("TMP files can be found (and removed manually) at %directory", array('%directory' => $directory)));
+    @copy($uri, "{$directory}/{$json_filename}");
+    ou_bagit_importer_process_json_file($pathinfo['dirname'], $directory, $json_filename, $parent_collection, $pid_namespace);
+  }
+  else {
+    drupal_set_message(t("Could not create directory. You may need to run drush command as sudo"), 'error');
+  }
 }
 
 /**
@@ -89,6 +88,17 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
       _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
       drupal_set_message(t('Saving book collection @book', array('@book' => $object['uuid'])));
       ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace );
+    }
+    else{
+        $content_type = $json_data['recipe']['import'];
+        switch($content_type){
+            case 'newspaper':
+                print('News paper is processed!');
+                break;
+            default :
+                drupal_set_message(t("Could not process the content type: ".$content_type));
+                break;
+        }
     }
 
     $batch =& batch_get();
