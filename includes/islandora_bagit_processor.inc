@@ -6,7 +6,7 @@
 
 abstract class IslandoraBagitProcessor
 {
-    const ISLANDORA_CONTENT_MODELS = array(
+    static $islandora_content_models = array(
                                         "book"=>"islandora:bookCModel", 
                                         "newspaper"=>"islandora:newspaperCModel", 
                                         "newspaper_issue"=>"islandora:newspaperIssueCModel"
@@ -17,12 +17,11 @@ abstract class IslandoraBagitProcessor
     var $recipe_data;
     var $tmp_dir;
     
-    function __construct($uri, $parent_collection, $pid_namespace, $recipe_data)
+    function __construct($uri, $parent_collection, $pid_namespace)
     {
         $this->uri = $uri;
         $this->parent_collection = $parent_collection;
         $this->pid_namespace = $pid_namespace;
-        $this->recipe_data = $recipe_data;
     }
     
     function getUri(){
@@ -79,7 +78,7 @@ abstract class IslandoraBagitProcessor
     }
     
     function buildObjectModel($object_info) {
-        $content_types = self::ISLANDORA_CONTENT_MODELS;
+        $content_types = self::$islandora_content_models;
         $type = $content_types[$object_info['import']];
         $metadata = $object_info['metadata'];
         $object = array(
@@ -102,7 +101,7 @@ abstract class IslandoraBagitProcessor
         file_put_contents($results_file_path, drupal_json_encode($results));
     }
     
-    abstract protected function batchImportFromRecipeData($source_uri, $drupal_directory, $json_filename, $parent_collection, $pid_namespace);
+    abstract protected function batchImportFromRecipeData();
 
     abstract public function updateIslandoraCollection();
 }
