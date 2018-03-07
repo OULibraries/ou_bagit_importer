@@ -96,7 +96,8 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
         switch($content_type){
             case 'newspaper':
                 $newspaper_processor = new IslandoraBagitNewspaperProcessor($source_uri, $parent_collection, $pid_namespace);
-                $newspaper_processor->updateIslandoraCollection();
+                $newspaper_processor->setRecipeData($json_data);
+                $newspaper_processor->batchImportFromRecipeData();
                 break;
             default :
                 drupal_set_message(t("Could not process the content type: ".$content_type));
