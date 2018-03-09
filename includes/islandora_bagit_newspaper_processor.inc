@@ -16,16 +16,32 @@ class IslandoraBagitNewspaperProcessor extends IslandoraBagitProcessor {
         $recipe_data = $this->getRecipeData();
         $newspaper = $this->updateIslandoraCollectionFromRecipeData($this->getParentCollection(), $recipe_data['recipe']);
         $issues = $recipe_data['recipe']['issues'];
+        
+        $batch = array(
+            'operations' => array(),
+            'finished' => '_ou_bagit_importer_batches_finished',
+            'title' => dt('Ingesting BAG...'),
+            'init_message' => dt('Preparing to ingest BAG...'),
+            'progress_message' => dt('Ingesting BAG'),
+            'error_message' => dt('Page could not get ingested'),
+        );
+        
         foreach ($issues as $sequence_number => $issue_data){
             $issue = $this->updateIslandoraCollectionFromRecipeData($newspaper->id, $issue_data, $sequence_number+1);
             if(count($pages = $issue_data['pages']) > 0){
                 foreach ($pages as $page_number => $page_data){
-                    $page = $this->updateIslandoraCollectionFromRecipeData($issue->id, $page_data, $page_number+1);
+//                    $page = $this->updateIslandoraCollectionFromRecipeData($issue->id, $page_data, $page_number+1);
+                    $batch['operations'][] = array(
+                        'ou_bagit_importer_batch_import_page_by_processor',
+                        array(serialize($this), $issue->id, $page_data, $page_number+1),
+                    );
                 }
             }
         }
-        $this->outputResults($result);
-        drupal_set_message(t('Saving book collection @book', array('@book' => $object['uuid'])));
+        
+//        $this->outputResults($result);
+        batch_set($batch);
+        drupal_set_message(t('Page processing has been done.'));
     }
     
 }

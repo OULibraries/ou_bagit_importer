@@ -281,7 +281,7 @@ abstract class IslandoraBagitProcessor
         }
     }
     
-    protected function updateIslandoraCollectionFromRecipeData($parent_collection, $recipe_data, $default_sequence_number=0) {
+    function updateIslandoraCollectionFromRecipeData($parent_collection, $recipe_data, $default_sequence_number=0) {
         $recipe_data['parent_collection'] = $parent_collection;
         if(empty($recipe_data['sequence_number'])){
             $recipe_data['sequence_number'] = $default_sequence_number;
