@@ -105,21 +105,32 @@ abstract class IslandoraBagitProcessor
             $islandora_object->label = $object_info['label'];
             $islandora_object->ownerId = $user->name;
             $islandora_object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model);
-            $islandora_object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $parent);
-            $this->retrieveObjectDatastreamsFromRecipeData($islandora_object, $object_info);
-            if(array_key_exists($content_model, self::$sequential_models)){                
-                if(self::$sequential_models[$content_model] === true){
-                    $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', $parent);                    
-                    $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageNumber', $object_info['page_number']);
-                    $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', $object_info['page_number']);
-                    $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
+            $islandora_object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $parent);            
+            if(array_key_exists($content_model, self::$sequential_models) && self::$sequential_models[$content_model] === true){  
+                if(!empty($object_info['page_number'])){
+                    $page_number = (string)$object_info['page_number'];
+                    if(empty($object_info['sequence_number'])){
+                        $sequence_number = $page_number;
+                    }
                 }
-                else{
-                    $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', $object_info['sequence_number']);                    
+                if(!empty($object_info['sequence_number'])){
+                    $sequence_number = (string)$object_info['sequence_number'];
+                    if(empty($object_info['page_number'])){
+                        $page_number = $sequence_number;
+                    }
                 }
+                $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', $parent);                    
+                $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageNumber', $page_number);
+                $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', $sequence_number);
+                $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
+                $this->buildPageObjectDatastreamsFromRecipeData($islandora_object, $object_info);
             }
             else{
                 $islandora_object->relationships->add(FEDORA_MODEL_URI, 'hasModel', 'fedora-system:FedoraObject-3.0');
+                $this->buildObjectDatastreamsFromRecipeData($islandora_object, $object_info);
+                if (array_key_exists($content_model, self::$sequential_models) && self::$sequential_models[$content_model] !== true){
+                    $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', (string)$object_info['sequence_number']);                    
+                }
             }
         }
         else {
@@ -135,7 +146,87 @@ abstract class IslandoraBagitProcessor
         return $islandora_object;
     }
     
-    private function retrieveObjectDatastreamsFromRecipeData(&$islandora_object, $recipe_data){
+    private function buildPageObjectDatastreamsFromRecipeData(&$islandora_object, $recipe_data){
+        $datastreams = array();
+        $physical_desc_data = '';
+        if (!empty($recipe_data['file'])) {
+            try{
+            // Check if the OBJ datastream needs to be created.
+                if (!empty($islandora_object['OBJ']) && md5($islandora_object['OBJ']->content === $recipe_data['md5'])) {
+                    // Do nothing for now.
+                } else if ($object_file = $this->copyFileFromRemoteUriToDrupalDirectory($recipe_data['file'], $this->tmp_dir, $recipe_data['md5'])) {
+                    // Make sure that object file hash matches hash from recipe.
+                    if (md5_file($object_file) !== $recipe_data['md5']) {
+                        throw new Exception('copied file has mismatched hash!');
+                    }
+                    $exif_info = exif_read_data($object_file);
+                    if (!empty($exif_info['ImageDescription'])) {
+                      $physical_desc_data = htmlspecialchars($exif_info['ImageDescription']);
+                    }
+                    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                    $datastreams['OBJ'] = array(
+                      'type' => finfo_file($finfo, drupal_realpath($object_file)),
+                      'content' => file_get_contents($object_file),
+                    );
+                    finfo_close($finfo);
+                }
+            }
+            catch (Exception $e){
+                drupal_set_message(t("Could not download and copy page file @".$recipe_data['file']." with error: ".$e->getMessage()));
+                return;
+            }
+        }
+        if (!empty($recipe_data['exif'])) {
+            // Create a copy of the exif file since we are dealing with relative links.
+            $exif_file = _ou_bagit_importer_copy($recipe_data['source_uri'], $recipe_data['drupal_directory'], $recipe_data['exif']);
+            if (file_exists($exif_file)) {
+              $datastreams['EXIF'] = array(
+                'type' => 'text/plain',
+                'content' => file_get_contents($exif_file),
+              );
+            }
+        }
+        
+        // Capture the MODS, DC data.
+        $copyright_data = 'Physical rights are retained by University of Oklahoma. Copyright is retained in accordance with U.S. copyright laws.';
+        $mods_record = _ou_bagit_importer_generate_book_page_mods($islandora_object->label, $physical_desc_data, $copyright_data);
+        $dc_record = ou_bagit_importer_run_xslt_transform(array(
+          'input' => $mods_record,
+          'xsl' => drupal_get_path('module', 'islandora_batch') . '/transforms/mods_to_dc.xsl',
+        ));
+        $datastreams['DC'] = array(
+          'type' => 'text/xml',
+          'content' => $dc_record,
+        );
+        $datastreams['MODS'] = array(
+          'type' => 'text/xml',
+          'content' => $mods_record,
+        );
+
+        foreach ($datastreams as $key => $value) {
+          if (!$islandora_object[$key]) {
+            $ds = $islandora_object->constructDatastream($key);
+            $ds->label = $key;
+            $ds->mimetype = $value['type'];
+            $ds->control_group = 'M';
+            $ds->setContentFromString($value['content']);
+            $islandora_object->ingestDatastream($ds);
+          }
+          else {
+            $ds = $islandora_object[$key];
+            // Only update if the datastream has changed.
+            if (md5($ds->content) != md5($value['content'])) {
+              $ds->label = $key;
+              $ds->mimetype = $value['type'];
+              $ds->control_group = 'M';
+              $ds->setContentFromString($value['content']);
+            }
+          }
+      }
+    }
+
+
+    private function buildObjectDatastreamsFromRecipeData(&$islandora_object, $recipe_data){
         
         if(!key_exists('metadata', $recipe_data) || empty($recipe_data['metadata'])){
             return;
@@ -189,129 +280,43 @@ abstract class IslandoraBagitProcessor
             }
         }
     }
-
-
-    /**
-     * 
-     * @param String $parent_collection
-     * @param Array $recipe_data
-     * @return Array $collection_obj
-     */
-    protected function updateIslandoraCollectionFromRecipeDataOld($parent_collection, $recipe_data) 
-    {
-        $object_array = $this->buildObjectModel($recipe_data);
-        $is_update = $recipe_data['update'];
-        drupal_static_reset('islandora_get_tuque_connection');
-        $tuque = islandora_get_tuque_connection();
-        $uuid = "{$this->pid_namespace}".":{$object_array['uuid']}";
-        $islandora_object = islandora_object_load($uuid);
-        $content_models = array(
-          $object_array['type'],
-          'fedora-system:FedoraObject-3.0',
-        );
-        $new = TRUE;
-
-        // Don't touch already imported objects unless running an update.
-        if ($islandora_object && !$is_update) {
-          drupal_set_message('Collection object already exists');
-          return array(
-            'object' => $object_array['uuid'],
-            'result' => FALSE,
-            'message' => 'Collection object already exists',
-          );
+    
+    protected function updateIslandoraCollectionFromRecipeData($parent_collection, $recipe_data, $default_sequence_number=0) {
+        $recipe_data['parent_collection'] = $parent_collection;
+        if(empty($recipe_data['sequence_number'])){
+            $recipe_data['sequence_number'] = $default_sequence_number;
         }
-        elseif ($islandora_object) {
-          $new = FALSE;
-          // We're running an update.
+        return $this->buildObjectModel($recipe_data);
+    }
+    
+    protected function copyFileFromRemoteUriToDrupalDirectory($uri, $dir, $hash = ""){
+        if (!ou_bagit_importer_is_path_remote($uri)) {
+            return $uri;
         }
-
-        // Set up islandora object.
-        if (!$islandora_object) {
-          $islandora_object = $tuque->repository->constructObject( "{$object_array['pid_namespace']}". ":{$object_array['uuid']}");
-          $islandora_object->id = "{$object_array['pid_namespace']}" . ":{$object_array['uuid']}";
-          $islandora_object->state = 'A';
-          $islandora_object->label = $object_array['label'];
-          $islandora_object->ownerId = $user->name;
-          foreach ($content_models as $content_model) {
-            $islandora_object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model);
-          }
-          $islandora_object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOfCollection', $parent_collection);
-        }
-        else {
-          $islandora_object->state = 'A';
-          $islandora_object->label = $object_array['label'];
-          $islandora_object->ownerId = $user->name;
-        }
-
-
-        $mods_record = ou_bagit_importer_run_xslt_transform(array(
-          'input' => file_get_contents($object_array['metadata']['marcxml']),
-          'xsl' => drupal_get_path('module', 'islandora_marcxml') . '/xsl/MARC21slim2MODS3-5.xsl',
-        ));
-
-        $dc_record = ou_bagit_importer_run_xslt_transform(array(
-          'input' => $mods_record,
-          'xsl' => drupal_get_path('module', 'islandora_batch') . '/transforms/mods_to_dc.xsl',
-        ));
-
-        $datastreams = array(
-          'DC' => array(
-            'type' => 'text/xml',
-            'content' => $dc_record,
-          ),
-          'MODS' => array(
-            'type' => 'text/xml',
-            'content' => $mods_record,
-          ),
-        );
-
-        if (!empty($object_array['metadata']['thumbnail'])) {
-          $finfo = finfo_open(FILEINFO_MIME_TYPE);
-          $datastreams['OBJ'] = array(
-            'type' => finfo_file($finfo, drupal_realpath($object_array['metadata']['thumbnail'])),
-            'content' => file_get_contents($object_array['metadata']['thumbnail']),
-          );
-          finfo_close($finfo);
-        }
-
-        foreach ($datastreams as $key => $value) {
-
-          if (!$islandora_object[$key]) {
-            $ds = $islandora_object->constructDatastream($key);
-            $ds->label = $key;
-            $ds->mimetype = $value['type'];
-            $ds->control_group = 'M';
-            $ds->setContentFromString($value['content']);
-            $islandora_object->ingestDatastream($ds);
-          }
-          else {
-            $ds = $islandora_object[$key];
-            // Only update this datastream if it has changed.
-            if (md5($ds->content) != md5($value['content'])) {
-              $ds->label = $key;
-              $ds->mimetype = $value['type'];
-              $ds->control_group = 'M';
-              $ds->setContentFromString($value['content']);
+        $destination = '';
+        try{
+            $path = parse_url($url, PHP_URL_PATH);
+            $path_arr = explode("/", $path);
+            $file = $path_arr[count($path_arr)-1];
+            $destination = "{$dir}/{$file}";
+            if (file_exists($destination) && md5_file($destination) == $hash) {
+                return $destination;
             }
-          }
         }
-
-        if ($new) {
-          islandora_add_object($islandora_object);
+        catch (Exception $e){
+            throw new Exception("Cannot parse the file source information: ".$uri);
         }
-        
-        return array(
-          'object' => $islandora_object->id,
-          'result' => TRUE,
-          'message' => 'Successfully ingested/updated',
-        );
+        try{
+            $status = @copy($uri, $destination);
+            if ($status) {
+                return $destination;
+            }
+        }
+        catch (Exception $e){
+            throw new Exception("Cannot copy file from $uri to $destination");
+        }
     }
-    
-    protected function updateIslandoraCollectionFromRecipeData($parent_collection, $object_info) {
-        $object_info['parent_collection'] = $parent_collection;
-        return $this->buildObjectModel($object_info);
-    }
-    
+            
     function outputResults($result, $overwrite = FALSE){
         $directory = $this->tmp_dir;
         $results_file_path = "{$directory}/results.json"; 
