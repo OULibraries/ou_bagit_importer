@@ -92,6 +92,7 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
     else{
         module_load_include('inc', 'ou_bagit_importer', 'includes/islandora_bagit_processor');
         module_load_include('inc', 'ou_bagit_importer', 'includes/islandora_bagit_newspaper_processor');
+        module_load_include('inc', 'ou_bagit_importer', 'includes/islandora_bagit_audio_processor');
         $content_type = $json_data['recipe']['import'];
         switch($content_type){
             case 'newspaper':
@@ -99,8 +100,14 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
                 $newspaper_processor->setRecipeData($json_data);
                 $newspaper_processor->batchImportFromRecipeData();
                 break;
+            case 'audio_collection':
+                $audio_processor = new IslandoraBagitAudioProcessor($source_uri, $parent_collection, $pid_namespace);
+                $audio_processor->setRecipeData($json_data);
+                $audio_processor->batchImportFromRecipeData();
+                break;
             default :
                 drupal_set_message(t("Could not process the content type: ".$content_type));
+                return NULL;
                 break;
         }
     }
@@ -174,6 +181,7 @@ function ou_bagit_importer_batch_import_page_by_processor($serialized_processor,
     
     module_load_include('inc', 'ou_bagit_importer', 'includes/islandora_bagit_processor');
     module_load_include('inc', 'ou_bagit_importer', 'includes/islandora_bagit_newspaper_processor');
+    module_load_include('inc', 'ou_bagit_importer', 'includes/islandora_bagit_audio_processor');
     
     $processor = unserialize($serialized_processor);
     $result = array();

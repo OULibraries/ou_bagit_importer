@@ -15,6 +15,10 @@ class IslandoraBagitNewspaperProcessor extends IslandoraBagitProcessor {
         $this->prepareImportDataFromBagit();
         $recipe_data = $this->getRecipeData();
         $newspaper = $this->updateIslandoraCollectionFromRecipeData($this->getParentCollection(), $recipe_data['recipe']);
+        if(empty($newspaper)){
+            drupal_set_message("Cannot add new newspaper ".($recipe_data['recipe']['label']));
+            throw new Exception("Cannot add new newspaper ".($recipe_data['recipe']['label']));
+        }
         $issues = $recipe_data['recipe']['issues'];
         
         $batch = array(
@@ -28,9 +32,12 @@ class IslandoraBagitNewspaperProcessor extends IslandoraBagitProcessor {
         
         foreach ($issues as $sequence_number => $issue_data){
             $issue = $this->updateIslandoraCollectionFromRecipeData($newspaper->id, $issue_data, $sequence_number+1);
+            if(empty($issue)){
+                drupal_set_message("Cannot add new issue with sequence_number=".($sequence_number+1));
+                continue;
+            }
             if(count($pages = $issue_data['pages']) > 0){
                 foreach ($pages as $page_number => $page_data){
-//                    $page = $this->updateIslandoraCollectionFromRecipeData($issue->id, $page_data, $page_number+1);
                     $batch['operations'][] = array(
                         'ou_bagit_importer_batch_import_page_by_processor',
                         array(serialize($this), $issue->id, $page_data, $page_number+1),
@@ -39,7 +46,6 @@ class IslandoraBagitNewspaperProcessor extends IslandoraBagitProcessor {
             }
         }
         
-//        $this->outputResults($result);
         batch_set($batch);
         drupal_set_message(t('Page processing has been done.'));
     }

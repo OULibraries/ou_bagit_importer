@@ -12,11 +12,12 @@ abstract class IslandoraBagitProcessor
                                         "newspaper_issue"=>"islandora:newspaperIssueCModel",
                                         "newspaper_page"=>"islandora:newspaperPageCModel",
                                         "book_page"=>"islandora:pageCModel",
-                                        "audio"=>"islandora:sp-audioCModel"
+                                        "audio"=>"islandora:sp-audioCModel",
+                                        "audio_collection"=>"islandora:collectionCModel"
                                     );
     // if a model has value true, it means it is a page type content model
     static $sequential_models = array(
-        "islandora:newspaperIssueCModel" => false, "islandora:pageCModel" => true, "islandora:newspaperPageCModel" => true
+        "islandora:newspaperIssueCModel" => false, "islandora:pageCModel" => true, "islandora:newspaperPageCModel" => true, "islandora:sp-audioCModel" => true
     );
     
     var $uri;
@@ -140,7 +141,14 @@ abstract class IslandoraBagitProcessor
         }
         
         if ($new) {
-          islandora_add_object($islandora_object);
+            $added_object = islandora_add_object($islandora_object);
+            if(!empty($added_object)){
+                drupal_set_message(t("The new build object has been sucessfully added. ID: ".$added_object->id));
+            }
+            else{
+                drupal_set_message(t("Could not ingest the new build object "));
+                return NULL;
+            }
         }
 
         return $islandora_object;
@@ -157,7 +165,7 @@ abstract class IslandoraBagitProcessor
                 } else if ($object_file = $this->copyFileFromRemoteUriToDrupalDirectory($recipe_data['file'], $this->tmp_dir, $recipe_data['md5'])) {
                     // Make sure that object file hash matches hash from recipe.
                     if (md5_file($object_file) !== $recipe_data['md5']) {
-                        throw new Exception('copied file has mismatched hash!');
+                        throw new Exception('copied file has mismatched hash!'.md5_file($object_file));
                     }
                     $exif_info = exif_read_data($object_file);
                     if (!empty($exif_info['ImageDescription'])) {
