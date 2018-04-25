@@ -12,11 +12,12 @@ abstract class IslandoraBagitProcessor
                                         "newspaper_issue"=>"islandora:newspaperIssueCModel",
                                         "newspaper_page"=>"islandora:newspaperPageCModel",
                                         "book_page"=>"islandora:pageCModel",
-                                        "audio"=>"islandora:sp-audioCModel"
+                                        "audio"=>"islandora:sp-audioCModel",
+                                        "audio_collection"=>"islandora:collectionCModel"
                                     );
     // if a model has value true, it means it is a page type content model
     static $sequential_models = array(
-        "islandora:newspaperIssueCModel" => false, "islandora:pageCModel" => true, "islandora:newspaperPageCModel" => true
+        "islandora:newspaperIssueCModel" => false, "islandora:pageCModel" => true, "islandora:newspaperPageCModel" => true, "islandora:sp-audioCModel" => true
     );
     
     var $uri;
@@ -25,11 +26,13 @@ abstract class IslandoraBagitProcessor
     var $recipe_data;
     var $tmp_dir;
     
-    function __construct($uri, $parent_collection, $pid_namespace)
+    function __construct($uri, $parent_collection, $pid_namespace, $recipe_data, $tmp_dir = NULL)
     {
         $this->uri = $uri;
         $this->parent_collection = $parent_collection;
         $this->pid_namespace = $pid_namespace;
+        $this->tmp_dir = $tmp_dir;
+        $this->recipe_data = $recipe_data;
     }
     
     function getUri(){
@@ -61,16 +64,20 @@ abstract class IslandoraBagitProcessor
     }
             
     function prepareImportDataFromBagit(){
-        $file_data = drupal_json_decode(file_get_contents($this->uri));
-        if (!$file_data) {
-          drupal_set_message(t("Could not download recipe."));
-          return;
+        if(empty($this->recipe_data)){
+            $file_data = drupal_json_decode(file_get_contents($this->uri));
+            if (!$file_data) {
+              drupal_set_message(t("Could not download recipe."));
+              return;
+            }
+            $this->setRecipeData($file_data);
         }
-        $this->setRecipeData($file_data);
-        $directory_basename = $file_data['recipe']['uuid'];
-        $directory = drush_get_option('tmp_dir', "temporary://ou_bagit_importer/{$directory_basename}");
-        if (file_prepare_directory($directory, FILE_CREATE_DIRECTORY)) {
-            $this->setTmpDir($directory);
+        if(empty($this->tmp_dir)){
+            $directory_basename = $file_data['recipe']['uuid'];
+            $directory = drush_get_option('tmp_dir', "temporary://ou_bagit_importer/{$directory_basename}");
+            if (file_prepare_directory($directory, FILE_CREATE_DIRECTORY)) {
+                $this->setTmpDir($directory);
+            }
         }
     }
     
@@ -140,7 +147,14 @@ abstract class IslandoraBagitProcessor
         }
         
         if ($new) {
-          islandora_add_object($islandora_object);
+            $added_object = islandora_add_object($islandora_object);
+            if(!empty($added_object)){
+                drupal_set_message(t("The new build object has been sucessfully added. ID: ".$added_object->id));
+            }
+            else{
+                drupal_set_message(t("Could not ingest the new build object "));
+                return NULL;
+            }
         }
 
         return $islandora_object;
@@ -156,8 +170,8 @@ abstract class IslandoraBagitProcessor
                     // Do nothing for now.
                 } else if ($object_file = $this->copyFileFromRemoteUriToDrupalDirectory($recipe_data['file'], $this->tmp_dir, $recipe_data['md5'])) {
                     // Make sure that object file hash matches hash from recipe.
-                    if (md5_file($object_file) !== $recipe_data['md5']) {
-                        throw new Exception('copied file has mismatched hash!');
+                    if (strtolower(md5_file($object_file)) !== strtolower($recipe_data['md5'])) {
+                        throw new Exception('copied file has mismatched hash: file md5='.md5_file($object_file).' vs recipe md5='.$recipe_data['md5']);
                     }
                     $exif_info = exif_read_data($object_file);
                     if (!empty($exif_info['ImageDescription'])) {
@@ -281,7 +295,7 @@ abstract class IslandoraBagitProcessor
         }
     }
     
-    protected function updateIslandoraCollectionFromRecipeData($parent_collection, $recipe_data, $default_sequence_number=0) {
+    function updateIslandoraCollectionFromRecipeData($parent_collection, $recipe_data, $default_sequence_number=0) {
         $recipe_data['parent_collection'] = $parent_collection;
         if(empty($recipe_data['sequence_number'])){
             $recipe_data['sequence_number'] = $default_sequence_number;
@@ -295,7 +309,7 @@ abstract class IslandoraBagitProcessor
         }
         $destination = '';
         try{
-            $path = parse_url($url, PHP_URL_PATH);
+            $path = parse_url($uri, PHP_URL_PATH);
             $path_arr = explode("/", $path);
             $file = $path_arr[count($path_arr)-1];
             $destination = "{$dir}/{$file}";
