@@ -19,7 +19,7 @@ abstract class IslandoraBagitProcessor
                                     );
     // if a model has value true, it means it is a page type content model
     static $sequential_models = array(
-        "islandora:newspaperIssueCModel" => false, "islandora:pageCModel" => true, "islandora:newspaperPageCModel" => true, "islandora:sp-audioCModel" => true, "islandora:sp_pdf" => false
+        "islandora:newspaperIssueCModel" => false, "islandora:pageCModel" => true, "islandora:newspaperPageCModel" => true, "islandora:sp-audioCModel" => true, "islandora:sp_pdf" => true
     );
     
     var $uri;
@@ -140,7 +140,7 @@ abstract class IslandoraBagitProcessor
                 if (array_key_exists($content_model, self::$sequential_models) && self::$sequential_models[$content_model] !== true){
                     $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', (string)$object_info['sequence_number']);                    
                 }
-                $this->buildPageObjectDatastreamsFromRecipeData($islandora_object, $object_info);
+                // $this->buildPageObjectDatastreamsFromRecipeData($islandora_object, $object_info);
             }
         }
         else {
@@ -160,7 +160,7 @@ abstract class IslandoraBagitProcessor
             }
         }
 
-        return $islandora_object;
+        return $added_object;
     }
     
     private function buildPageObjectDatastreamsFromRecipeData(&$islandora_object, $recipe_data){
