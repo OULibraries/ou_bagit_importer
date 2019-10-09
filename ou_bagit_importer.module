@@ -72,7 +72,6 @@ function ou_bagit_importer_save_item($object_array, $json_recipe, $parent_collec
     'xsl' => drupal_get_path('module', 'islandora_batch') . '/transforms/mods_to_dc.xsl',
   ));
   
-
   $datastreams = array(
     'DC' => array(
       'type' => 'text/xml',
@@ -307,7 +306,9 @@ function _ou_bagit_importer_generate_book_page_mods($label, $physical_desc_data 
 function _ou_bagit_importer_copy($source_uri, $dest_directory, $path, $hash = "") {
   $file = basename($path);
   $source = "{$source_uri}/{$path}";
-  if (strpos($path, 'http') === 0) {
+
+  # Treat path as absolute if it looks like an absolute path
+  if (strpos($path, 'http') === 0 || strpos($path,'/')===0)  {
     $source = $path;
   }
   // Idea: Use source so we're not copying the file and reduce disk I/O
