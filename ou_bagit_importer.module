@@ -83,11 +83,29 @@ function ou_bagit_importer_save_item($object_array, $json_recipe, $parent_collec
     ),
   );
 
-  if (!empty($object_array['metadata']['thumbnail'])) {
+#  if (!empty($object_array['metadata']['thumbnail'])) {
+#    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+#    $datastreams['OBJ'] = array(
+#      'type' => finfo_file($finfo, drupal_realpath($object_array['metadata']['thumbnail'])),
+#      'content' => file_get_contents($object_array['metadata']['thumbnail']),
+#    );
+#    finfo_close($finfo);
+#  }
+
+  if (!empty($object_array['files']['tn'])) {
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $datastreams['TN'] = array(
+      'type' => finfo_file($finfo, drupal_realpath($object_array['files']['tn'])),
+      'content' => file_get_contents($object_array['files']['tn']),
+    );
+    finfo_close($finfo);
+  }
+
+  if (!empty($object_array['files']['obj'])) {
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $datastreams['OBJ'] = array(
-      'type' => finfo_file($finfo, drupal_realpath($object_array['metadata']['thumbnail'])),
-      'content' => file_get_contents($object_array['metadata']['thumbnail']),
+      'type' => finfo_file($finfo, drupal_realpath($object_array['files']['obj'])),
+      'content' => file_get_contents($object_array['files']['obj']),
     );
     finfo_close($finfo);
   }
