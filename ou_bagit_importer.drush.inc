@@ -48,7 +48,7 @@ function drush_ou_bagit_importer_import_ou_bag() {
 
   $file_data = drupal_json_decode(file_get_contents($uri));
   if (!$file_data) {
-    drupal_set_message(t("Could not download recipe."));
+    drupal_set_message(t("Could not download recipe.")); 
   }
   $directory_basename = $file_data['recipe']['uuid'];
   $directory = drush_get_option('tmp_dir', "temporary://ou_bagit_importer/{$directory_basename}");
@@ -72,9 +72,15 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
   $json_data = drupal_json_decode(file_get_contents("{$drupal_directory}/{$json_filename}"));
   if ($json_data) {
     $type = $json_data['recipe']['import'];
+
     $metadata = array();
     foreach ($json_data['recipe']['metadata'] as $datastream => $path) {
       $metadata[$datastream] = _ou_bagit_importer_copy($source_uri, $drupal_directory, $path);
+    }
+
+    $filestreams = array();
+    foreach ($json_data['recipe']['files'] as $datastream => $path) {
+      $filestreams[$datastream] = _ou_bagit_importer_copy($source_uri, $drupal_directory, $path);
     }
 
 
@@ -103,6 +109,7 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
         'uuid' => $json_data['recipe']['uuid'],
         'label' => $json_data['recipe']['label'],
         'metadata' => $metadata,
+        'files' => $filestreams
       );
 
       $result = ou_bagit_importer_save_item($object, $json_data['recipe'], $parent_collection, $pid_namespace);
