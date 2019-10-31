@@ -74,15 +74,18 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
     $type = $json_data['recipe']['import'];
 
     $metadata = array();
-    foreach ($json_data['recipe']['metadata'] as $datastream => $path) {
-      $metadata[$datastream] = _ou_bagit_importer_copy($source_uri, $drupal_directory, $path);
+    if( array_key_exists('metadata', $json_data['recipe'] )) {
+      foreach ($json_data['recipe']['metadata'] as $datastream => $path) {
+        $metadata[$datastream] = _ou_bagit_importer_copy($source_uri, $drupal_directory, $path);
+      }
     }
 
     $filestreams = array();
-    foreach ($json_data['recipe']['files'] as $datastream => $path) {
-      $filestreams[$datastream] = _ou_bagit_importer_copy($source_uri, $drupal_directory, $path);
+    if( array_key_exists('files', $json_data['recipe'] )) {
+      foreach ($json_data['recipe']['files'] as $datastream => $path) {
+        $filestreams[$datastream] = _ou_bagit_importer_copy($source_uri, $drupal_directory, $path);
+      }
     }
-
 
     if ($json_data['recipe']['import'] == 'book') {
       $object = array(
