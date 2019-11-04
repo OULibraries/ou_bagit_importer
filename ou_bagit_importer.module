@@ -7,9 +7,9 @@
 
 
 /**
- * Creates/Updates a book collection.
+ * Creates/Updates an item-level record.
  */
-function ou_bagit_importer_save_book_collection($object_array, $json_recipe, $parent_collection, $pid_namespace) {
+function ou_bagit_importer_save_item($object_array, $json_recipe, $parent_collection, $pid_namespace) {
 
   // Reset because we want to make sure tuque is connecting with the right credentials
   drupal_static_reset('islandora_get_tuque_connection');
@@ -25,11 +25,11 @@ function ou_bagit_importer_save_book_collection($object_array, $json_recipe, $pa
 
   // Don't touch already imported objects unless running an update.
   if ($islandora_object && !$update) {
-    drupal_set_message('Book collection object exists');
+    drupal_set_message('Item already exists');
     return array(
       'object' => $object_array['uuid'],
       'result' => FALSE,
-      'message' => 'Book collection object exists',
+      'message' => 'Item already exists',
     );
   }
   elseif ($islandora_object) {
@@ -55,17 +55,23 @@ function ou_bagit_importer_save_book_collection($object_array, $json_recipe, $pa
     $islandora_object->ownerId = $user->name;
   }
 
+  // MODS metatdata must be provided as MODS or parsed from MarcXML if MODS is not present. 
+  // One or the other must be provided, but MODS takes precendence. 
+  if(!empty($object_array['metadata']['mods'])) {
+    $mods_record = file_get_contents($object_array['metadata']['mods']);
+  } else {
+    $mods_record = ou_bagit_importer_run_xslt_transform(array(
+      'input' => file_get_contents($object_array['metadata']['marcxml']),
+      'xsl' => drupal_get_path('module', 'islandora_marcxml') . '/xsl/MARC21slim2MODS3-5.xsl',
+    ));
+  }
 
-  $mods_record = ou_bagit_importer_run_xslt_transform(array(
-    'input' => file_get_contents($object_array['metadata']['marcxml']),
-    'xsl' => drupal_get_path('module', 'islandora_marcxml') . '/xsl/MARC21slim2MODS3-5.xsl',
-  ));
-
+  // DC metatdata will be derived from MODS
   $dc_record = ou_bagit_importer_run_xslt_transform(array(
     'input' => $mods_record,
     'xsl' => drupal_get_path('module', 'islandora_batch') . '/transforms/mods_to_dc.xsl',
   ));
-
+  
   $datastreams = array(
     'DC' => array(
       'type' => 'text/xml',
@@ -77,11 +83,29 @@ function ou_bagit_importer_save_book_collection($object_array, $json_recipe, $pa
     ),
   );
 
-  if (!empty($object_array['metadata']['thumbnail'])) {
+#  if (!empty($object_array['metadata']['thumbnail'])) {
+#    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+#    $datastreams['OBJ'] = array(
+#      'type' => finfo_file($finfo, drupal_realpath($object_array['metadata']['thumbnail'])),
+#      'content' => file_get_contents($object_array['metadata']['thumbnail']),
+#    );
+#    finfo_close($finfo);
+#  }
+
+  if (!empty($object_array['files']['tn'])) {
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $datastreams['TN'] = array(
+      'type' => finfo_file($finfo, drupal_realpath($object_array['files']['tn'])),
+      'content' => file_get_contents($object_array['files']['tn']),
+    );
+    finfo_close($finfo);
+  }
+
+  if (!empty($object_array['files']['obj'])) {
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $datastreams['OBJ'] = array(
-      'type' => finfo_file($finfo, drupal_realpath($object_array['metadata']['thumbnail'])),
-      'content' => file_get_contents($object_array['metadata']['thumbnail']),
+      'type' => finfo_file($finfo, drupal_realpath($object_array['files']['obj'])),
+      'content' => file_get_contents($object_array['files']['obj']),
     );
     finfo_close($finfo);
   }
@@ -300,7 +324,9 @@ function _ou_bagit_importer_generate_book_page_mods($label, $physical_desc_data 
 function _ou_bagit_importer_copy($source_uri, $dest_directory, $path, $hash = "") {
   $file = basename($path);
   $source = "{$source_uri}/{$path}";
-  if (strpos($path, 'http') === 0) {
+
+  # Treat path as absolute if it looks like an absolute path
+  if (strpos($path, 'http') === 0 || strpos($path,'/')===0)  {
     $source = $path;
   }
   // Idea: Use source so we're not copying the file and reduce disk I/O

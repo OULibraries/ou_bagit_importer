@@ -48,7 +48,7 @@ function drush_ou_bagit_importer_import_ou_bag() {
 
   $file_data = drupal_json_decode(file_get_contents($uri));
   if (!$file_data) {
-    drupal_set_message(t("Could not download recipe."));
+    drupal_set_message(t("Could not download recipe.")); 
   }
   $directory_basename = $file_data['recipe']['uuid'];
   $directory = drush_get_option('tmp_dir', "temporary://ou_bagit_importer/{$directory_basename}");
@@ -72,10 +72,21 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
   $json_data = drupal_json_decode(file_get_contents("{$drupal_directory}/{$json_filename}"));
   if ($json_data) {
     $type = $json_data['recipe']['import'];
+
     $metadata = array();
-    foreach ($json_data['recipe']['metadata'] as $datastream => $path) {
-      $metadata[$datastream] = _ou_bagit_importer_copy($source_uri, $drupal_directory, $path);
+    if( array_key_exists('metadata', $json_data['recipe'] )) {
+      foreach ($json_data['recipe']['metadata'] as $datastream => $path) {
+        $metadata[$datastream] = _ou_bagit_importer_copy($source_uri, $drupal_directory, $path);
+      }
     }
+
+    $filestreams = array();
+    if( array_key_exists('files', $json_data['recipe'] )) {
+      foreach ($json_data['recipe']['files'] as $datastream => $path) {
+        $filestreams[$datastream] = _ou_bagit_importer_copy($source_uri, $drupal_directory, $path);
+      }
+    }
+
     if ($json_data['recipe']['import'] == 'book') {
       $object = array(
         'type' => 'islandora:bookCModel',
@@ -84,15 +95,32 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
         'label' => $json_data['recipe']['label'],
         'metadata' => $metadata,
       );
-      $result = ou_bagit_importer_save_book_collection($object, $json_data['recipe'], $parent_collection, $pid_namespace);
+      $result = ou_bagit_importer_save_item($object, $json_data['recipe'], $parent_collection, $pid_namespace);
       _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
       drupal_set_message(t('Saving book collection @book', array('@book' => $object['uuid'])));
       ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace );
+    
+      $batch =& batch_get();
+      $batch['progressive'] = FALSE;
+      drush_backend_batch_process();
+     }
+
+     if ($json_data['recipe']['import'] == 'audio') {
+      $object = array(
+        'type' => 'islandora:sp-audioCModel',
+        'pid_namespace' => $pid_namespace,
+        'uuid' => $json_data['recipe']['uuid'],
+        'label' => $json_data['recipe']['label'],
+        'metadata' => $metadata,
+        'files' => $filestreams
+      );
+
+      $result = ou_bagit_importer_save_item($object, $json_data['recipe'], $parent_collection, $pid_namespace);
+      _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
+      drupal_set_message(t('Saving book collection @audio', array('@book' => $object['uuid'])));
     }
 
-    $batch =& batch_get();
-    $batch['progressive'] = FALSE;
-    drush_backend_batch_process();
+
   }
   else {
     drupal_set_message(t('Invalid JSON data!'), 'error');
