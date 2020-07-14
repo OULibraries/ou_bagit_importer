@@ -69,61 +69,73 @@ function drush_ou_bagit_importer_import_ou_bag() {
  *
  */
 function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $json_filename, $parent_collection, $pid_namespace) {
+  
   $json_data = drupal_json_decode(file_get_contents("{$drupal_directory}/{$json_filename}"));
-  if ($json_data) {
-    $type = $json_data['recipe']['import'];
-
-    $metadata = array();
-    if( array_key_exists('metadata', $json_data['recipe'] )) {
-      foreach ($json_data['recipe']['metadata'] as $datastream => $path) {
-        $metadata[$datastream] = _ou_bagit_importer_copy($source_uri, $drupal_directory, $path);
-      }
-    }
-
-    $filestreams = array();
-    if( array_key_exists('files', $json_data['recipe'] )) {
-      foreach ($json_data['recipe']['files'] as $datastream => $path) {
-        $filestreams[$datastream] = _ou_bagit_importer_copy($source_uri, $drupal_directory, $path);
-      }
-    }
-
-    if ($json_data['recipe']['import'] == 'book') {
-      $object = array(
-        'type' => 'islandora:bookCModel',
-        'pid_namespace' => $pid_namespace,
-        'uuid' => $json_data['recipe']['uuid'],
-        'label' => $json_data['recipe']['label'],
-        'metadata' => $metadata,
-      );
-      $result = ou_bagit_importer_save_item($object, $json_data['recipe'], $parent_collection, $pid_namespace);
-      _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
-      drupal_set_message(t('Saving book collection @book', array('@book' => $object['uuid'])));
-      ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace );
-    
-      $batch =& batch_get();
-      $batch['progressive'] = FALSE;
-      drush_backend_batch_process();
-     }
-
-     if ($json_data['recipe']['import'] == 'audio') {
-      $object = array(
-        'type' => 'islandora:sp-audioCModel',
-        'pid_namespace' => $pid_namespace,
-        'uuid' => $json_data['recipe']['uuid'],
-        'label' => $json_data['recipe']['label'],
-        'metadata' => $metadata,
-        'files' => $filestreams
-      );
-
-      $result = ou_bagit_importer_save_item($object, $json_data['recipe'], $parent_collection, $pid_namespace);
-      _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
-      drupal_set_message(t('Saving book collection @audio', array('@book' => $object['uuid'])));
-    }
-
-
-  }
-  else {
+  if (! $json_data) { 
     drupal_set_message(t('Invalid JSON data!'), 'error');
+    return; 
+  }
+        
+  # We only support a limited number of object types.   
+  $type = $json_data['recipe']['import'];
+  if(! in_array( $type,  array( "book", "image", "audio", "pdf"))) { 
+    drupal_set_message( t('Attempt to load unsupported recipe type'), 'error' );
+    return;
+  }
+
+  # We need local copies of files that potentially live at remote urls 
+  # TODO This could use more error handling, probably. 
+  $metadata = array();
+  if( array_key_exists('metadata', $json_data['recipe'] )) {
+    foreach ($json_data['recipe']['metadata'] as $datastream => $path) {
+      $metadata[$datastream] = _ou_bagit_importer_copy($source_uri, $drupal_directory, $path);
+    }
+  }
+  $filestreams = array();
+  if( array_key_exists('files', $json_data['recipe'] )) {
+    foreach ($json_data['recipe']['files'] as $datastream => $path) {
+      $filestreams[$datastream] = _ou_bagit_importer_copy($source_uri, $drupal_directory, $path);
+    }
+  }
+
+  $object = array(
+    'pid_namespace' => $pid_namespace,
+    'uuid' => $json_data['recipe']['uuid'],
+    'label' => $json_data['recipe']['label'],
+    'metadata' => $metadata,
+    'files' => $filestreams
+  );
+
+  if ($type == 'book') {
+    # Book is the only compound object that we know how to process
+    $object['type'] = 'islandora:bookCModel';
+    drupal_set_message(t('Saving @type item @obj', array('@obj' => $object['uuid'],'@type' => $type))); 
+
+    # Process parent object
+    $result = ou_bagit_importer_save_item($object, $json_data['recipe'], $parent_collection, $pid_namespace);
+    _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
+
+    # Queue processing of child pages for book
+    ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace );  
+    $batch =& batch_get();
+    $batch['progressive'] = FALSE;
+    drush_backend_batch_process();
+
+  } else {  
+
+    # Load a simple object
+    if ($type == 'audio') {
+      $object['type'] = 'islandora:sp-audioCModel';
+    } else if ($type == 'image') {
+      $object['type'] = 'islandora:sp_large_image_cmodel';
+    } else if ($type == 'pdf') {
+      $object['type'] = 'islandora:sp_pdf';
+    }    
+  
+    # One step to process a simple object 
+    drupal_set_message(t('Saving pdf item @obj', array('@obj' => $object['uuid'],'@type' => $type)));     
+    $result = ou_bagit_importer_save_item($object, $json_data['recipe'], $parent_collection, $pid_namespace);
+    _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
   }
 }
 
