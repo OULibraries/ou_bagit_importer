@@ -50,8 +50,8 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
     
     // Are we loading a page that needs to be stiched in to a book?
     if($object_array['type'] == 'islandora:pageCModel') {
-      $islandora_object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', "{$object_array['pid_namespace']}" . ':' . $object_array['book']);
-      $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', "{$object_array['pid_namespace']}" . ':' . $object_array['book']);
+      $islandora_object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', "{$object_array['pid_namespace']}" . ':' . $parent_collection);
+      $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', "{$object_array['pid_namespace']}" . ':' . $parent_collection);
       $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', $object_array['page_number']);
       $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageNumber', $object_array['page_number']);
       $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
@@ -136,7 +136,7 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
     $mods_record = _ou_bagit_importer_generate_book_page_mods($islandora_object->label, $physical_desc_data, $copyright_data);
   }
 
-  // DC metatdata will be derived from MODS
+  // DC metadata will be derived from MODS
   $dc_record = ou_bagit_importer_run_xslt_transform(array(
     'input' => $mods_record,
     'xsl' => drupal_get_path('module', 'islandora_batch') . '/transforms/mods_to_dc.xsl',

@@ -154,11 +154,10 @@ function ou_bagit_importer_process_json_book_pages($source_uri, $drupal_director
   );
   foreach ($json_data['pages'] as $key => $page) {
     $batch['operations'][] = array(
-      'ou_bagit_importer_batch_import_page',
+      'ou_bagit_importer_batch_import_item',
       array(
         $source_uri,
         $drupal_directory,
-        $object,
         $key,
         $page,
         $json_data,
@@ -206,8 +205,37 @@ function ou_bagit_importer_batch_import_page($source_uri, $drupal_directory, $ob
 /**
  *
  */
-function ou_bagit_importer_batch_import_item($source_uri, $drupal_directory, $object, $page_number, $page, $json_data, $pid_namespace, &$context ) {
- 
+function ou_bagit_importer_batch_import_item($source_uri, $drupal_directory, $page_number, $item, $json_data, $pid_namespace, &$context ) {
+  
+  $result = array();
+
+  # TODO figure out type logic, this should get moved into the module code, hate using json_data variable
+  if (!isset($item['type']) && isset($json_data['pages'])) {
+    $type = 'islandora:pageCModel';
+  }else {
+    $type = $item['type'];
+  }
+
+  $object = array(
+    'pid_namespace' => $pid_namespace,
+    'source_uri' => $source_uri,
+    'drupal_directory' => $drupal_directory,
+    'file' => $item['file'],
+    'hash' => $item['md5'],
+    'exif' => $item['exif'],
+    'type' => $type,
+    'update' => $json_data['recipe']['update'],
+    'page_number' => $page_number,
+    'uuid' => $item['uuid'],
+    'label' => $item['label'],
+    'metadata' => $metadata,
+  );
+  drupal_set_message(t("Item @item will be ingested.", array('@item' => $item['label'])));
+  $result = ou_bagit_importer_save_item($object, $json_data['uuid'], $pid_namespace);
+
+  if (!empty($result)) {
+    _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result);
+  }
 }
 
 /**
