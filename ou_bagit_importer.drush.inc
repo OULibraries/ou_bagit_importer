@@ -78,7 +78,7 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
         
   # We only support a limited number of object types.   
   $type = $json_data['recipe']['import'];
-  if(! in_array( $type,  array( "book", "image", "audio", "pdf"))) { 
+  if(! in_array( $type,  array( "book", "image", "audio", "pdf", "collection"))) { 
     drupal_set_message( t('Attempt to load unsupported recipe type'), 'error' );
     return;
   }
@@ -117,6 +117,22 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
 
     # Queue processing of child pages for book
     ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace );  
+    $batch =& batch_get();
+    $batch['progressive'] = FALSE;
+    drush_backend_batch_process();
+
+  } elseif ($type == 'collection') {
+
+    # Book is the only compound object that we know how to process
+    $object['type'] = 'islandora:collectionCModel';
+    drupal_set_message(t('Saving @type item @obj', array('@obj' => $object['uuid'],'@type' => $type))); 
+
+    # Process parent object
+    $result = ou_bagit_importer_save_item($object, $json_data['recipe'], $parent_collection, $pid_namespace);
+    _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
+
+    # Queue processing of member objects
+    ou_bagit_importer_process_collection_members($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace );  
     $batch =& batch_get();
     $batch['progressive'] = FALSE;
     drush_backend_batch_process();
@@ -167,6 +183,12 @@ function ou_bagit_importer_process_json_book_pages($source_uri, $drupal_director
   }
   batch_set($batch);
 }
+/**
+ *
+ */
+function ou_bagit_importer_process_collection_members($source_uri, $drupal_directory, $object, $json_data, $pid_namespace) {
+
+}
 
 /**
  *
@@ -193,6 +215,13 @@ function ou_bagit_importer_batch_import_page($source_uri, $drupal_directory, $ob
   if (!empty($result)) {
     _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result);
   }
+}
+
+/**
+ *
+ */
+function ou_bagit_importer_batch_import_item($source_uri, $drupal_directory, $object, $page_number, $page, $json_data, $pid_namespace, &$context ) {
+ 
 }
 
 /**
