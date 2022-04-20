@@ -177,34 +177,6 @@ function ou_bagit_importer_process_collection_members($source_uri, $drupal_direc
 /**
  *
  */
-function ou_bagit_importer_batch_import_page($source_uri, $drupal_directory, $object, $page_number, $page, $json_data, $pid_namespace, &$context ) {
-  $result = array();
-  $object = array(
-    'pid_namespace' => $pid_namespace,
-    'source_uri' => $source_uri,
-    'drupal_directory' => $drupal_directory,
-    'file' => $page['file'],
-    'hash' => $page['md5'],
-    'exif' => $page['exif'],
-    'type' => 'islandora:pageCModel',
-    'book' => $json_data['uuid'],
-    'update' => $json_data['recipe']['update'],
-    'page_number' => $page_number,
-    'uuid' => $page['uuid'],
-    'label' => $page['label'],
-    'metadata' => $metadata,
-  );
-  drupal_set_message(t("Page @page will be ingested.", array('@page' => $page['label'])));
-  $result = ou_bagit_importer_save_item($object, $object['book'], $pid_namespace);
-
-  if (!empty($result)) {
-    _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result);
-  }
-}
-
-/**
- *
- */
 function ou_bagit_importer_batch_import_item($source_uri, $drupal_directory, $page_number, $item, $json_data, $pid_namespace, &$context ) {
   
   $result = array();
