@@ -111,6 +111,7 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
     'pid_namespace' => $pid_namespace,
     'uuid' => $json_data['recipe']['uuid'],
     'label' => $json_data['recipe']['label'],
+    'update' => $json_data['recipe']['update'],
     'metadata' => $metadata,
     'files' => $filestreams,
     'type' => $knownModels[$type],
@@ -118,7 +119,7 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
  
   # One step to process a main object 
   drupal_set_message(t('Saving @type item @obj', array('@obj' => $object['uuid'], '@type' => $type)));
-  $result = ou_bagit_importer_save_item($object, $json_data['recipe'], $parent_collection, $pid_namespace);
+  $result = ou_bagit_importer_save_item($object, $parent_collection, $pid_namespace);
   _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
 
   # Queue processing of member objects if present   
@@ -188,13 +189,14 @@ function ou_bagit_importer_batch_import_page($source_uri, $drupal_directory, $ob
     'exif' => $page['exif'],
     'type' => 'islandora:pageCModel',
     'book' => $json_data['uuid'],
+    'update' => $json_data['recipe']['update'],
     'page_number' => $page_number,
     'uuid' => $page['uuid'],
     'label' => $page['label'],
     'metadata' => $metadata,
   );
   drupal_set_message(t("Page @page will be ingested.", array('@page' => $page['label'])));
-  $result = ou_bagit_importer_save_item($object, $json_data, $object['book'], $pid_namespace);
+  $result = ou_bagit_importer_save_item($object, $object['book'], $pid_namespace);
 
   if (!empty($result)) {
     _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result);

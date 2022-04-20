@@ -9,14 +9,14 @@
 /**
  * Creates/Updates an item-level record.
  */
-function ou_bagit_importer_save_item($object_array, $json_recipe, $parent_collection, $pid_namespace) {
+function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_namespace) {
 
   // Reset because we want to make sure tuque is connecting with the right credentials
   drupal_static_reset('islandora_get_tuque_connection');
   $tuque = islandora_get_tuque_connection();
   $uuid = "{$pid_namespace}".":{$object_array['uuid']}";
   $islandora_object = islandora_object_load($uuid);
-  $update = (bool) $json_recipe['update'];
+  $update = (bool) $object_array['update'];
   $content_models = array(
     $object_array['type'],
     'fedora-system:FedoraObject-3.0',
@@ -48,7 +48,7 @@ function ou_bagit_importer_save_item($object_array, $json_recipe, $parent_collec
       $islandora_object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model);
     }
     
-    // Are we loading a book page?
+    // Are we loading a page that needs to be stiched in to a book?
     if($object_array['type'] == 'islandora:pageCModel') {
       $islandora_object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', "{$object_array['pid_namespace']}" . ':' . $object_array['book']);
       $islandora_object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', "{$object_array['pid_namespace']}" . ':' . $object_array['book']);
