@@ -76,7 +76,8 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
     return; 
   }
         
-  # We only support a limited number of object types.   
+  # We only support a limited number of object types.
+  # TODO define this list in the module
   $type = $json_data['recipe']['import'];
   if(! in_array( $type,  array( "book", "image", "audio", "pdf", "collection"))) { 
     drupal_set_message( t('Attempt to load unsupported recipe type'), 'error' );
@@ -210,7 +211,7 @@ function ou_bagit_importer_batch_import_page($source_uri, $drupal_directory, $ob
     'metadata' => $metadata,
   );
   drupal_set_message(t("Page @page will get ingested here", array('@page' => $file)));
-  $result = ou_bagit_importer_save_book_page($object, $json_data);
+  $result = ou_bagit_importer_save_item($object, $json_data, $object['book'], $pid_namespace);
 
   if (!empty($result)) {
     _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result);
