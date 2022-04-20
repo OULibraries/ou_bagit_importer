@@ -189,16 +189,20 @@ function ou_bagit_importer_save_book_page($object_array, $json_recipe) {
   $datastreams = array();
   $physical_desc_data = '';
   if (!empty($object_array['file'])) {
-    // Check if the OBJ datastream needs to be created.
-    if (!empty($islandora_object['OBJ']) && md5($islandora_object['OBJ']->content === $object_array['hash'])) {
-      // Do nothing for now.
-    } else if ($object_file = _ou_bagit_importer_copy($object_array['source_uri'], $object_array['drupal_directory'], $object_array['file'], $object_array['hash'])) {
-      // Make sure that object file hash matches hash from recipe.
+     // Check if the OBJ datastream needs to be created.
+    if (!empty($islandora_object['OBJ']) 
+       && md5($islandora_object['OBJ']->content === $object_array['hash'])) {
+       // Do nothing if it looks like new content matches existing content. 
+    } else if ($object_file = _ou_bagit_importer_copy($object_array['source_uri'],
+                                                      $object_array['drupal_directory'],
+                                                      $object_array['file'],
+                                                      $object_array['hash'])){
       if (md5_file($object_file) !== $object_array['hash']) {
+         // Make sure that imported object file hash matches hash from recipe.      
         return array(
           'object' => $islandora_object->id,
           'result' => FALSE,
-          'message' => t("Page @page hash does not match hash in recipe.", array('@page' => $object_array['file'])),
+          'message' => t("Page @page hash does not match hash in recipe (@hash).", array('@page' => $object_array['file'], '@hash' => $object_array['hash'])),
         );
       }
       $exif_info = exif_read_data($object_file);
