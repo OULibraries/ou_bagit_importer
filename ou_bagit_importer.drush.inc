@@ -182,6 +182,7 @@ function ou_bagit_importer_batch_import_item($source_uri, $drupal_directory, $pa
     'source_uri' => $source_uri,
     'drupal_directory' => $drupal_directory,
     'file' => $item['file'],
+    'files'=> $item['files'],
     'hash' => $item['md5'],
     'exif' => $item['exif'],
     'import' => $item['import'],
@@ -189,7 +190,7 @@ function ou_bagit_importer_batch_import_item($source_uri, $drupal_directory, $pa
     'page_number' => $page_number,
     'uuid' => $item['uuid'],
     'label' => $item['label'],
-    'metadata' => $metadata,
+    'metadata' => $item['metadata'],
   );
   drupal_set_message(t("Item @item will be ingested.", array('@item' => $item['label'])));
   $result = ou_bagit_importer_save_item($object, $pid_namespace.':'.$json_data['uuid'], $pid_namespace);
