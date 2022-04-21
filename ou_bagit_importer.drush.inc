@@ -108,21 +108,12 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
   _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
 
   # Queue processing of member objects if present   
-  if (array_key_exists('members', $json_data['recipe'])) {
-    ou_bagit_importer_process_collection_members($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace);
-    $batch = &batch_get();
-    $batch['progressive'] = FALSE;
-    drush_backend_batch_process();
-  }
-
-  # Queue processing of child pages for if present
-  if (array_key_exists('pages', $json_data['recipe'])) {
+  if (array_key_exists('members', $json_data['recipe']) || array_key_exists('pages', $json_data['recipe'])  ) {
     ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace);
     $batch = &batch_get();
     $batch['progressive'] = FALSE;
     drush_backend_batch_process();
-  }
-  
+  }  
 }
 
 /**
@@ -137,19 +128,39 @@ function ou_bagit_importer_process_json_book_pages($source_uri, $drupal_director
     'progress_message' => dt('Ingesting BAG'),
     'error_message' => dt('File could not get ingested'),
   );
-  foreach ($json_data['pages'] as $key => $page) {
-    $batch['operations'][] = array(
-      'ou_bagit_importer_batch_import_item',
-      array(
-        $source_uri,
-        $drupal_directory,
-        $key,
-        $page,
-        $json_data,
-        $pid_namespace,
-      ),
-    );
+
+  if (!empty($json_data['pages'])) {
+    foreach ($json_data['pages'] as $key => $page) {
+      $batch['operations'][] = array(
+        'ou_bagit_importer_batch_import_item',
+        array(
+          $source_uri,
+          $drupal_directory,
+          $key,
+          $page,
+          $json_data,
+          $pid_namespace,
+        ),
+      );
+    }
   }
+
+  if (!empty($json_data['members'])) {
+    foreach ($json_data['members'] as $key => $page) {
+      $batch['operations'][] = array(
+        'ou_bagit_importer_batch_import_item',
+        array(
+          $source_uri,
+          $drupal_directory,
+          $key,
+          $page,
+          $json_data,
+          $pid_namespace,
+        ),
+      );
+    }
+  }
+
   batch_set($batch);
 }
 /**
