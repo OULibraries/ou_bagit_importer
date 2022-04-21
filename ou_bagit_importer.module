@@ -7,7 +7,7 @@
 
 
 /**
- * Creates/Updates an item-level record.
+ * Create or update a repository item. 
  */
 function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_namespace) {
 
@@ -224,7 +224,7 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
 }
 
 /**
- * Runs xslt transform on xml data.
+ * Run xslt transform on xml data.
  */
 function ou_bagit_importer_run_xslt_transform($info) {
   $xsl = new DOMDocument();
@@ -245,7 +245,7 @@ function ou_bagit_importer_run_xslt_transform($info) {
 }
 
 /**
- * Generate mods content for a book page.
+ * Generate basic mods content for a book page.
  */
 function _ou_bagit_importer_generate_book_page_mods($label, $physical_desc_data = NULL, $copyright_data = NULL) {
   $mods = '<?xml version="1.0"?>';
@@ -263,7 +263,7 @@ function _ou_bagit_importer_generate_book_page_mods($label, $physical_desc_data 
 }
 
 /**
- * Copies file from path to destination directory.
+ * Copy file from path to destination directory.
  */
 function _ou_bagit_importer_copy($source_uri, $dest_directory, $path, $hash = "") {
   $file = basename($path);

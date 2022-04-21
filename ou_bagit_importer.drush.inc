@@ -2,6 +2,7 @@
 
 /**
  * @file
+ * Batch, json processing, and cli interface
  */
 
 /**
@@ -66,7 +67,7 @@ function drush_ou_bagit_importer_import_ou_bag() {
 }
 
 /**
- *
+ * Process json recipe file and dispatch import functions.
  */
 function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $json_filename, $parent_collection, $pid_namespace) {
   
@@ -107,9 +108,10 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
   $result = ou_bagit_importer_save_item($object, $parent_collection, $pid_namespace);
   _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
 
-  # Queue processing of member objects if present   
+  # Queue processing of member objects if present
+  # Book pages and member objects are treated similarly
   if (array_key_exists('members', $json_data['recipe']) || array_key_exists('pages', $json_data['recipe'])  ) {
-    ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace);
+    ou_bagit_importer_process_collection($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace);
     $batch = &batch_get();
     $batch['progressive'] = FALSE;
     drush_backend_batch_process();
@@ -117,9 +119,9 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
 }
 
 /**
- *
+ * Queue up batch load of member or page objects.
  */
-function ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data, $pid_namespace) {
+function ou_bagit_importer_process_collection($source_uri, $drupal_directory, $object, $json_data, $pid_namespace) {
   $batch = array(
     'operations' => array(),
     'finished' => '_ou_bagit_importer_batches_finished',
@@ -129,6 +131,7 @@ function ou_bagit_importer_process_json_book_pages($source_uri, $drupal_director
     'error_message' => dt('File could not get ingested'),
   );
 
+  // Recipes should include members or pages, and generally won't have both. Should we enforce that? 
   if (!empty($json_data['pages'])) {
     foreach ($json_data['pages'] as $key => $page) {
       $batch['operations'][] = array(
@@ -161,17 +164,13 @@ function ou_bagit_importer_process_json_book_pages($source_uri, $drupal_director
     }
   }
 
+  // Queue up the import work.
   batch_set($batch);
 }
-/**
- *
- */
-function ou_bagit_importer_process_collection_members($source_uri, $drupal_directory, $object, $json_data, $pid_namespace) {
 
-}
 
 /**
- *
+ * Do a batched item import. 
  */
 function ou_bagit_importer_batch_import_item($source_uri, $drupal_directory, $page_number, $item, $json_data, $pid_namespace, &$context ) {
   
@@ -201,14 +200,7 @@ function ou_bagit_importer_batch_import_item($source_uri, $drupal_directory, $pa
 }
 
 /**
- *
- */
-function _ou_bagit_importer_batches_finished($success, $results, $operations) {
-  drush_print('Ingest complete!');
-}
-
-/**
- * Checks if the path to bag is remote or local.
+ * Check if the path to bag is remote or local.
  */
 function ou_bagit_importer_is_path_remote($path) {
   $host = parse_url($path, PHP_URL_HOST);
@@ -218,6 +210,13 @@ function ou_bagit_importer_is_path_remote($path) {
   else {
     return TRUE;
   }
+}
+
+/**
+ * Handle batch finished event
+ */
+function _ou_bagit_importer_batches_finished($success, $results, $operations) {
+  drush_print('Ingest complete!');
 }
 
 /**
