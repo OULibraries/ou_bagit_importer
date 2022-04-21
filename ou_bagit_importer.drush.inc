@@ -76,21 +76,6 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
     return; 
   }
 
-  # What are we trying to import?
-  $type = $json_data['recipe']['import'];
-        
-  # We only support a limited number of object types.
-  $knownModels = array (
-    'book'   => 'islandora:bookCModel',
-    'audio'  => 'islandora:sp-audioCModel',
-    'image'      => 'islandora:sp_large_image_cmodel',
-    'pdf'        => 'islandora:sp_pdf',
-    'collection' => 'islandora:collectionCModel',
-  );
-  if(! in_array( $type,  array_keys( $knownModels))) { 
-    drupal_set_message( t('Attempt to load unsupported recipe type'), 'error' );
-    return;
-  }
 
   # We need local copies of files that potentially live at remote urls 
   # TODO This could use more error handling, probably. 
@@ -112,13 +97,13 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
     'uuid' => $json_data['recipe']['uuid'],
     'label' => $json_data['recipe']['label'],
     'update' => $json_data['recipe']['update'],
+    'import' => $json_data['recipe']['import'],
     'metadata' => $metadata,
     'files' => $filestreams,
-    'type' => $knownModels[$type],
   );
  
   # One step to process a main object 
-  drupal_set_message(t('Saving @type item @obj', array('@obj' => $object['uuid'], '@type' => $type)));
+  drupal_set_message(t('Saving item @obj', array('@obj' => $object['uuid'] )));
   $result = ou_bagit_importer_save_item($object, $parent_collection, $pid_namespace);
   _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
 
@@ -181,13 +166,6 @@ function ou_bagit_importer_batch_import_item($source_uri, $drupal_directory, $pa
   
   $result = array();
 
-  # TODO figure out type logic, this should get moved into the module code, hate using json_data variable
-  if (!isset($item['type']) && isset($json_data['pages'])) {
-    $type = 'islandora:pageCModel';
-  }else {
-    $type = $item['type'];
-  }
-
   $object = array(
     'pid_namespace' => $pid_namespace,
     'source_uri' => $source_uri,
@@ -195,7 +173,7 @@ function ou_bagit_importer_batch_import_item($source_uri, $drupal_directory, $pa
     'file' => $item['file'],
     'hash' => $item['md5'],
     'exif' => $item['exif'],
-    'type' => $type,
+    'import' => $item['import'],
     'update' => $json_data['recipe']['update'],
     'page_number' => $page_number,
     'uuid' => $item['uuid'],
@@ -203,7 +181,7 @@ function ou_bagit_importer_batch_import_item($source_uri, $drupal_directory, $pa
     'metadata' => $metadata,
   );
   drupal_set_message(t("Item @item will be ingested.", array('@item' => $item['label'])));
-  $result = ou_bagit_importer_save_item($object, $json_data['uuid'], $pid_namespace);
+  $result = ou_bagit_importer_save_item($object, $pid_namespace.':'.$json_data['uuid'], $pid_namespace);
 
   if (!empty($result)) {
     _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result);
