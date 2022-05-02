@@ -2,6 +2,7 @@
 
 /**
  * @file
+ * Batch, json processing, and cli interface
  */
 
 /**
@@ -66,7 +67,7 @@ function drush_ou_bagit_importer_import_ou_bag() {
 }
 
 /**
- *
+ * Process json recipe file and dispatch import functions.
  */
 function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $json_filename, $parent_collection, $pid_namespace) {
   
@@ -75,13 +76,7 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
     drupal_set_message(t('Invalid JSON data!'), 'error');
     return; 
   }
-        
-  # We only support a limited number of object types.   
-  $type = $json_data['recipe']['import'];
-  if(! in_array( $type,  array( "book", "image", "audio", "pdf"))) { 
-    drupal_set_message( t('Attempt to load unsupported recipe type'), 'error' );
-    return;
-  }
+
 
   # We need local copies of files that potentially live at remote urls 
   # TODO This could use more error handling, probably. 
@@ -102,47 +97,31 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
     'pid_namespace' => $pid_namespace,
     'uuid' => $json_data['recipe']['uuid'],
     'label' => $json_data['recipe']['label'],
+    'update' => $json_data['recipe']['update'],
+    'import' => $json_data['recipe']['import'],
     'metadata' => $metadata,
-    'files' => $filestreams
+    'files' => $filestreams,
   );
+ 
+  # One step to process a main object 
+  drupal_set_message(t('Saving item @obj', array('@obj' => $object['uuid'] )));
+  $result = ou_bagit_importer_save_item($object, $parent_collection, $pid_namespace);
+  _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
 
-  if ($type == 'book') {
-    # Book is the only compound object that we know how to process
-    $object['type'] = 'islandora:bookCModel';
-    drupal_set_message(t('Saving @type item @obj', array('@obj' => $object['uuid'],'@type' => $type))); 
-
-    # Process parent object
-    $result = ou_bagit_importer_save_item($object, $json_data['recipe'], $parent_collection, $pid_namespace);
-    _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
-
-    # Queue processing of child pages for book
-    ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace );  
-    $batch =& batch_get();
+  # Queue processing of member objects if present
+  # Book pages and member objects are treated similarly
+  if (array_key_exists('members', $json_data['recipe']) || array_key_exists('pages', $json_data['recipe'])  ) {
+    ou_bagit_importer_process_collection($source_uri, $drupal_directory, $object, $json_data['recipe'], $pid_namespace);
+    $batch = &batch_get();
     $batch['progressive'] = FALSE;
     drush_backend_batch_process();
-
-  } else {  
-
-    # Load a simple object
-    if ($type == 'audio') {
-      $object['type'] = 'islandora:sp-audioCModel';
-    } else if ($type == 'image') {
-      $object['type'] = 'islandora:sp_large_image_cmodel';
-    } else if ($type == 'pdf') {
-      $object['type'] = 'islandora:sp_pdf';
-    }    
-  
-    # One step to process a simple object 
-    drupal_set_message(t('Saving pdf item @obj', array('@obj' => $object['uuid'],'@type' => $type)));     
-    $result = ou_bagit_importer_save_item($object, $json_data['recipe'], $parent_collection, $pid_namespace);
-    _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
-  }
+  }  
 }
 
 /**
- *
+ * Queue up batch load of member or page objects.
  */
-function ou_bagit_importer_process_json_book_pages($source_uri, $drupal_directory, $object, $json_data, $pid_namespace) {
+function ou_bagit_importer_process_collection($source_uri, $drupal_directory, $object, $json_data, $pid_namespace) {
   $batch = array(
     'operations' => array(),
     'finished' => '_ou_bagit_importer_batches_finished',
@@ -151,44 +130,69 @@ function ou_bagit_importer_process_json_book_pages($source_uri, $drupal_director
     'progress_message' => dt('Ingesting BAG'),
     'error_message' => dt('File could not get ingested'),
   );
-  foreach ($json_data['pages'] as $key => $page) {
-    $batch['operations'][] = array(
-      'ou_bagit_importer_batch_import_page',
-      array(
-        $source_uri,
-        $drupal_directory,
-        $object,
-        $key,
-        $page,
-        $json_data,
-        $pid_namespace,
-      ),
-    );
+
+  // Recipes should include members or pages, and shouldn't have both. We'll check for pages, becasue the book 
+  // format is older, and then we'll check for members.
+  // TODO merge this in to one case 
+  if (!empty($json_data['pages'])) {
+    foreach ($json_data['pages'] as $key => $page) {
+      $batch['operations'][] = array(
+        'ou_bagit_importer_batch_import_item',
+        array(
+          $source_uri,
+          $drupal_directory,
+          $key,
+          $page,
+          $json_data,
+          $pid_namespace,
+        ),
+      );
+    }
+  } else if (!empty($json_data['members'])) {
+    foreach ($json_data['members'] as $key => $page) {
+      $batch['operations'][] = array(
+        'ou_bagit_importer_batch_import_item',
+        array(
+          $source_uri,
+          $drupal_directory,
+          $key,
+          $page,
+          $json_data,
+          $pid_namespace,
+        ),
+      );
+    }
   }
+
+  // Queue up the import work.
   batch_set($batch);
 }
 
+
 /**
- *
+ * Do a batched item import. 
  */
-function ou_bagit_importer_batch_import_page($source_uri, $drupal_directory, $object, $page_number, $page, $json_data, $pid_namespace, &$context ) {
+function ou_bagit_importer_batch_import_item($source_uri, $drupal_directory, $page_number, $item, $json_data, $pid_namespace, &$context ) {
+  
   $result = array();
+
   $object = array(
     'pid_namespace' => $pid_namespace,
     'source_uri' => $source_uri,
     'drupal_directory' => $drupal_directory,
-    'file' => $page['file'],
-    'hash' => $page['md5'],
-    'exif' => $page['exif'],
-    'type' => 'islandora:pageCModel',
-    'book' => $json_data['uuid'],
+    'file' => $item['file'],
+    'files'=> $item['files'],
+    'hash' => $item['md5'],
+    'exif' => $item['exif'],
+    'import' => $item['import'],
+    'update' => $json_data['recipe']['update'],
     'page_number' => $page_number,
-    'uuid' => $page['uuid'],
-    'label' => $page['label'],
-    'metadata' => $metadata,
+    'uuid' => $item['uuid'],
+    'label' => $item['label'],
+    'metadata' => $item['metadata'],
   );
-  drupal_set_message(t("Page @page will get ingested here", array('@page' => $file)));
-  $result = ou_bagit_importer_save_book_page($object, $json_data);
+  drupal_set_message(t("Item @item will be ingested.", array('@item' => $item['label'])));
+  $result = ou_bagit_importer_save_item($object, $pid_namespace.':'.$json_data['uuid'], $pid_namespace);
 
   if (!empty($result)) {
     _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result);
@@ -196,14 +200,7 @@ function ou_bagit_importer_batch_import_page($source_uri, $drupal_directory, $ob
 }
 
 /**
- *
- */
-function _ou_bagit_importer_batches_finished($success, $results, $operations) {
-  drush_print('Ingest complete!');
-}
-
-/**
- * Checks if the path to bag is remote or local.
+ * Check if the path to bag is remote or local.
  */
 function ou_bagit_importer_is_path_remote($path) {
   $host = parse_url($path, PHP_URL_HOST);
@@ -213,6 +210,13 @@ function ou_bagit_importer_is_path_remote($path) {
   else {
     return TRUE;
   }
+}
+
+/**
+ * Handle batch finished event
+ */
+function _ou_bagit_importer_batches_finished($success, $results, $operations) {
+  drush_print('Ingest complete!');
 }
 
 /**
