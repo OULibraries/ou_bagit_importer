@@ -131,7 +131,9 @@ function ou_bagit_importer_process_collection($source_uri, $drupal_directory, $o
     'error_message' => dt('File could not get ingested'),
   );
 
-  // Recipes should include members or pages, and generally won't have both. Should we enforce that? 
+  // Recipes should include members or pages, and shouldn't have both. We'll check for pages, becasue the book 
+  // format is older, and then we'll check for members.
+  // TODO merge this in to one case 
   if (!empty($json_data['pages'])) {
     foreach ($json_data['pages'] as $key => $page) {
       $batch['operations'][] = array(
@@ -146,9 +148,7 @@ function ou_bagit_importer_process_collection($source_uri, $drupal_directory, $o
         ),
       );
     }
-  }
-
-  if (!empty($json_data['members'])) {
+  } else if (!empty($json_data['members'])) {
     foreach ($json_data['members'] as $key => $page) {
       $batch['operations'][] = array(
         'ou_bagit_importer_batch_import_item',

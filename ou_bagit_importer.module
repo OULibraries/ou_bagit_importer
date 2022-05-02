@@ -2,7 +2,7 @@
 
 /**
  * @file
- * The OU json recipe importer.
+ * Core OU  recipe importer code..
  */
 
 
@@ -23,7 +23,6 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
 
   # What are we trying to import?
   # TODO find a better way to check for paged content than file property
-
   if (isset($object_array['import']) && in_array($object_array['import'], array_keys($knownModels))) {
     $type = $knownModels[$object_array['import']];
   } elseif (isset($object_array['file'])) {
