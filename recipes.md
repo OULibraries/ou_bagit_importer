@@ -73,6 +73,7 @@ With recipe elements defines as above.
 
 The reciepe for a collection of simple objects are books. Recipe elemetns are defined as above with the addition of the `members` key, which must be a list of inline Simple or Book object recipes. 
 
+```
 {
   "recipe": {
     "uuid": "test", 
