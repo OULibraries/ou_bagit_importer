@@ -26,11 +26,9 @@ The recipe elements are:
 * `files` dictionary should files for an Islandora object. Available keys include `obj`, `tn`, or `exif`, and the values can be absolute paths or URLs. 
 * `uuid` should be the UUID corresponding to the simple object, but that's not enforced. Could be any string that's not already assigned as an object PID.  
 * `metadata` dictionary should include  metadata files for an Islandora object. Available keys include, `mods`, `dc`, `marcxml`. MARC data will be mapped to MODS.
-* `update` indicates that a new object should be created when set to `false`, or an update to an existing object when set to `true`. If update is false, rerunning a recipe that creates the same PID in Islandora will fail. 
+* `update` indicates that a new object must be created when set to `false`. If update is true, importing the recipe for an object whose PID already exists in Islandora will update the existing object (rather than failing). 
+* `label`: should be a human readable identifier for the content. 
 * `import` indicates the import type. Valid values include `pdf`,`image`,`audio` for basic recipes, and `book`, `page`, and `collection` for more complicated recipes (documented below).  
-
-
-
 
 ## Book Recipes
 
@@ -54,7 +52,7 @@ The recipe for a single book:
 
 ```
 
-Recipe elements are defined as above, with the addition of the `pages` key, which must be a list of Page object recipes. 
+Recipe elements are defined as above, with the addition of the `pages` key, which must be a list of Page object recipes. A `files` list may be provided, for setting the `TN` datastream, etc.  but this is unusual for book recipes.  
 
 ### Page Recipes 
 
@@ -70,7 +68,6 @@ Page objects recipes must be included inline in a book recipe. The recipe format
 ```
 
 With recipe elements defines as above. 
-
 
 ## Collection Recipes
 
@@ -91,4 +88,5 @@ The reciepe for a collection of simple objects are books. Recipe elemetns are de
   }
 }
 ```
-Collection Recipes CANNOT include Collections as members at this time.
+
+Collection recipes CANNOT include Collections as members at this time. A `files` list may be provided, for setting the `TN` datastream, etc, but is not required. 
