@@ -267,7 +267,7 @@ function _ou_bagit_importer_generate_book_page_mods($label, $physical_desc_data 
  * Copy file from path to destination directory.
  */
 function _ou_bagit_importer_copy($source_uri, $dest_directory, $path, $hash = "") {
-  drupal_set_message(t("Make @path is available for local processing  .", array('@path' =>$path )));
+  drupal_set_message(t("Make @path available for local processing  .", array('@path' =>$path )));
   
   $file = basename($path);
   $source = "{$source_uri}/{$path}";
