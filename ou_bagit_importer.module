@@ -175,19 +175,21 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
   );
 
   if (!empty($object_array['files']['tn'])) {
+    $tn_file = _ou_bagit_importer_copy($object_array['source_uri'], $object_array['drupal_directory'], $object_array['files']['tn']);
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $datastreams['TN'] = array(
-      'type' => finfo_file($finfo, drupal_realpath($object_array['files']['tn'])),
-      'content' => file_get_contents($object_array['files']['tn']),
+      'type' => finfo_file($finfo, $tn_file),
+      'content' => file_get_contents($tn_file),
     );
     finfo_close($finfo);
   }
 
   if (!empty($object_array['files']['obj'])) {
+    $obj_file = _ou_bagit_importer_copy($object_array['source_uri'], $object_array['drupal_directory'], $object_array['files']['obj']);
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $datastreams['OBJ'] = array(
-      'type' => finfo_file($finfo, drupal_realpath($object_array['files']['obj'])),
-      'content' => file_get_contents($object_array['files']['obj']),
+      'type' => finfo_file($finfo, $obj_file),
+      'content' => file_get_contents($obj_file), 
     );
     finfo_close($finfo);
   }
@@ -265,6 +267,8 @@ function _ou_bagit_importer_generate_book_page_mods($label, $physical_desc_data 
  * Copy file from path to destination directory.
  */
 function _ou_bagit_importer_copy($source_uri, $dest_directory, $path, $hash = "") {
+  drupal_set_message(t("Make @source_uri available for local processing  .", array('@source_uri' =>$source_uri )));
+  
   $file = basename($path);
   $source = "{$source_uri}/{$path}";
 
