@@ -1,10 +1,8 @@
 <?php
-
 /**
  * @file
  * Core OU  recipe importer code..
  */
-
 
 /**
  * Create or update a repository item. 
@@ -91,7 +89,7 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
   $datastreams = array();
   $physical_desc_data = '';
 
-  // book bages have specify the file attribute
+  // book pages have specify the file attribute
   if ($type == 'islandora:pageCModel') {
 
     if (!empty($object_array['file'])) {
@@ -134,7 +132,6 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
       }
     }
     if (!empty($object_array['exif'])) {
-      // Create a copy of the exif file since we are dealing with relative links.
       $exif_file = _ou_bagit_importer_copy($object_array['source_uri'], $object_array['drupal_directory'], $object_array['exif']);
       if (file_exists($exif_file)) {
         $datastreams['EXIF'] = array(
@@ -158,22 +155,22 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
     $copyright_data = 'Physical rights are retained by University of Oklahoma. Copyright is retained in accordance with U.S. copyright laws.';
     $mods_record = _ou_bagit_importer_generate_book_page_mods($islandora_object->label, $physical_desc_data, $copyright_data);
   }
+  $datastreams['MODS'] = array(
+    'type' => 'text/xml',
+    'content' => $mods_record,
+  );
 
   // DC metadata will be derived from MODS
   $dc_record = ou_bagit_importer_run_xslt_transform(array(
     'input' => $mods_record,
     'xsl' => drupal_get_path('module', 'islandora_batch') . '/transforms/mods_to_dc.xsl',
   ));
-  
   $datastreams['DC'] = array(
     'type' => 'text/xml',
     'content' => $dc_record,
   );
-  $datastreams['MODS'] = array(
-    'type' => 'text/xml',
-    'content' => $mods_record,
-  );
 
+  // Thumbnails may be provided for some item types
   if (!empty($object_array['files']['tn'])) {
     $tn_file = _ou_bagit_importer_copy($object_array['source_uri'], $object_array['drupal_directory'], $object_array['files']['tn']);
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -184,6 +181,7 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
     finfo_close($finfo);
   }
 
+  // OBJ files will be provided for most, but not all, object types	
   if (!empty($object_array['files']['obj'])) {
     $obj_file = _ou_bagit_importer_copy($object_array['source_uri'], $object_array['drupal_directory'], $object_array['files']['obj']);
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -194,6 +192,7 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
     finfo_close($finfo);
   }
 
+  // Update exisitng or add new datastreams for repository item  
   foreach ($datastreams as $key => $value) {
     if (!$islandora_object[$key]) {
       $ds = $islandora_object->constructDatastream($key);
@@ -217,6 +216,7 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
   if ($new) {
     islandora_add_object($islandora_object);
   }
+
   return array(
     'object' => $islandora_object->id,
     'result' => TRUE,
