@@ -280,13 +280,14 @@ function _ou_bagit_importer_copy($source_uri, $dest_directory, $path, $hash = ""
   }
   # Use source so we're not copying the file and reduce disk I/O
   if (!ou_bagit_importer_is_path_remote($source)) {
+  watchdog('islandora', 'Local file at %source', array('%source'=> $source), WATCHDOG_NOTICE, $link);
     return $source;
   }
-
-  $destination = "{$dest_directory}/{$file}";
-
+  
   # don't download if we already have a copy
+  $destination = "{$dest_directory}/{$file}";
   if (file_exists($destination) && md5_file($destination) == $hash) {
+  watchdog('islandora', 'File remote, but we have a copy at', array('%dest'=> $destination), WATCHDOG_NOTICE, $link);
     return $destination;
   }
 
