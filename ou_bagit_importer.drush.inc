@@ -49,7 +49,8 @@ function drush_ou_bagit_importer_import_ou_bag() {
 
   $file_data = drupal_json_decode(file_get_contents($uri));
   if (!$file_data) {
-    drupal_set_message(t("Could not download recipe.")); 
+    drupal_set_message(t("Could not download recipe."), 'error'); 
+    watchdog('islandora','Could not download recipe', array(), WATCHDOG_ERROR);
   }
   $directory_basename = $file_data['recipe']['uuid'];
   $directory = drush_get_option('tmp_dir', "temporary://ou_bagit_importer/{$directory_basename}");
@@ -73,7 +74,8 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
   
   $json_data = drupal_json_decode(file_get_contents("{$drupal_directory}/{$json_filename}"));
   if (! $json_data) { 
-    drupal_set_message(t('Invalid JSON data!'), 'error');
+    drupal_set_message(t('Invalid JSON data in @json', array('@json'=>$json_filename), 'error'));
+    watchdog('islandora','Invalid JSON data in %json', array('%json'=>$json_filename), WATCHDOG_ERROR);
     return; 
   }
 
@@ -104,7 +106,8 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
   );
  
   # One step to process a main object 
-  drupal_set_message(t('Saving item @obj', array('@obj' => $object['uuid'] )));
+  drupal_set_message(t('Saving item @obj', array('@obj' => $object['uuid'] ), 'error'));
+  watchdog('islandora','Saving item %obj', array('%obj'=>$object['uuid']), WATCHDOG_NOTICE);
   $result = ou_bagit_importer_save_item($object, $parent_collection, $pid_namespace);
   _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
 
@@ -192,6 +195,7 @@ function ou_bagit_importer_batch_import_item($source_uri, $drupal_directory, $pa
     'metadata' => $item['metadata'],
   );
   drupal_set_message(t("Item @item will be ingested.", array('@item' => $item['label'])));
+  watchdog('islandora','Item %item will be ingested.', array('%item'=>$item['label']), WATCHDOG_NOTICE);
   $result = ou_bagit_importer_save_item($object, $pid_namespace.':'.$json_data['uuid'], $pid_namespace);
 
   if (!empty($result)) {
@@ -224,9 +228,12 @@ function _ou_bagit_importer_batches_finished($success, $results, $operations) {
  */
 function _ou_bagit_importer_write_results($filename, $result, $overwrite = FALSE) {
   $results = array();
+
+  # Get previously logged results for a compound object. 
   if ($overwrite && file_exists($filename)) {
     $results = (array) drupal_json_decode(file_get_contents($filename));
   }
+
   $results[$result['object']] = $result;
   file_put_contents($filename, drupal_json_encode($results));
 }

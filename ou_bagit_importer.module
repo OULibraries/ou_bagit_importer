@@ -27,6 +27,7 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
     $type = 'islandora:pageCModel';
   } else {
     drupal_set_message(t('Attempt to load unsupported item type @type.', array('@type' => $type)), 'error');
+    watchdog('islandora','Attempt to load unsupported item type %type.', array('%type' => $type), WATCHDOG_ERROR);
     return;
   }
 
@@ -46,7 +47,8 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
 
   // Don't touch already imported objects unless running an update.
   if ($islandora_object && !$update) {
-    drupal_set_message('Item already exists');
+    drupal_set_message('Item already exists.');
+    watchdog('islandora','Item already exists.', array(), WATCHDOG_NOTICE);
     return array(
       'object' => $object_array['uuid'],
       'result' => FALSE,
@@ -276,16 +278,24 @@ function _ou_bagit_importer_copy($source_uri, $dest_directory, $path, $hash = ""
   if (strpos($path, 'http') === 0 || strpos($path,'/')===0)  {
     $source = $path;
   }
-  // Idea: Use source so we're not copying the file and reduce disk I/O
+  # Use source so we're not copying the file and reduce disk I/O
   if (!ou_bagit_importer_is_path_remote($source)) {
     return $source;
   }
+
   $destination = "{$dest_directory}/{$file}";
+
+  # don't download if we already have a copy
   if (file_exists($destination) && md5_file($destination) == $hash) {
     return $destination;
   }
+
+  # otherwise we need to get a copy 
+  watchdog('islandora', 'Downloading from %dest', array('%dest'=> $destination), WATCHDOG_NOTICE, $link);
   $status = @copy($source, $destination);
   if ($status) {
     return $destination;
+  } else {
+    watchdog('islandora', 'Error copying %dest', array('%dest'=> $destination), WATCHDOG_ERROR);
   }
 }
