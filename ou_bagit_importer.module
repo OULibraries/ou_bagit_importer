@@ -172,7 +172,9 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
     'content' => $dc_record,
   );
 
-  // Thumbnails may be provided for some item types
+  // TODO: generalize to handle more datastream types. 
+
+  // Handle thumbnails. Not required, but may be provided for some item types.
   if (!empty($object_array['files']['tn'])) {
     $tn_file = _ou_bagit_importer_copy($object_array['source_uri'], $object_array['drupal_directory'], $object_array['files']['tn']);
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -183,7 +185,7 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
     finfo_close($finfo);
   }
 
-  // OBJ files will be provided for most, but not all, object types	
+  // Handle OBJ files. Provided for most, but not all, object types.	
   if (!empty($object_array['files']['obj'])) {
     $obj_file = _ou_bagit_importer_copy($object_array['source_uri'], $object_array['drupal_directory'], $object_array['files']['obj']);
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
