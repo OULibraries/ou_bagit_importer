@@ -74,7 +74,7 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
   
   $json_data = drupal_json_decode(file_get_contents("{$drupal_directory}/{$json_filename}"));
   if (! $json_data) { 
-    drupal_set_message(t('Invalid JSON data in @json', array('@json'=>$json_filename), 'error'));
+    drupal_set_message(t('Invalid JSON data in @json', array('@json'=>$json_filename)), 'error');
     watchdog('islandora','Invalid JSON data in %json', array('%json'=>$json_filename), WATCHDOG_ERROR);
     return; 
   }
@@ -106,7 +106,7 @@ function ou_bagit_importer_process_json_file($source_uri, $drupal_directory, $js
   );
  
   # One step to process a main object 
-  drupal_set_message(t('Saving item @obj', array('@obj' => $object['uuid'] ), 'error'));
+  drupal_set_message(t('Saving item @obj', array('@obj' => $object['uuid'] )));
   watchdog('islandora','Saving item %obj', array('%obj'=>$object['uuid']), WATCHDOG_NOTICE);
   $result = ou_bagit_importer_save_item($object, $parent_collection, $pid_namespace);
   _ou_bagit_importer_write_results("{$drupal_directory}/results.json", $result, TRUE);
