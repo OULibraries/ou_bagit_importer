@@ -172,7 +172,9 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
     'content' => $dc_record,
   );
 
-  // Thumbnails may be provided for some item types
+  // TODO: generalize to handle more datastream types. 
+
+  // Handle thumbnails. Not required, but may be provided for some item types.
   if (!empty($object_array['files']['tn'])) {
     $tn_file = _ou_bagit_importer_copy($object_array['source_uri'], $object_array['drupal_directory'], $object_array['files']['tn']);
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -183,7 +185,7 @@ function ou_bagit_importer_save_item($object_array, $parent_collection, $pid_nam
     finfo_close($finfo);
   }
 
-  // OBJ files will be provided for most, but not all, object types	
+  // Handle OBJ files. Provided for most, but not all, object types.	
   if (!empty($object_array['files']['obj'])) {
     $obj_file = _ou_bagit_importer_copy($object_array['source_uri'], $object_array['drupal_directory'], $object_array['files']['obj']);
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -280,13 +282,14 @@ function _ou_bagit_importer_copy($source_uri, $dest_directory, $path, $hash = ""
   }
   # Use source so we're not copying the file and reduce disk I/O
   if (!ou_bagit_importer_is_path_remote($source)) {
+  watchdog('islandora', 'Local file at %source', array('%source'=> $source), WATCHDOG_NOTICE, $link);
     return $source;
   }
-
-  $destination = "{$dest_directory}/{$file}";
-
+  
   # don't download if we already have a copy
+  $destination = "{$dest_directory}/{$file}";
   if (file_exists($destination) && md5_file($destination) == $hash) {
+  watchdog('islandora', 'File remote, but we have a copy at', array('%dest'=> $destination), WATCHDOG_NOTICE, $link);
     return $destination;
   }
 
